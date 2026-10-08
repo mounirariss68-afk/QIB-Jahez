@@ -1,1 +1,2 @@
 - [ZIP import routing](zip-import-routing.md) — starter artifact routes can intercept an imported app’s API even when its server is healthy.
+- [QIB customer app reference](qib-customer-app-reference.md) — the demo phone should follow the supplied QIB video, using the official uploaded logo.
