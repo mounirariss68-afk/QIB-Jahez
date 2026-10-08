@@ -1,31 +1,31 @@
 kind = "api"
-previewPath = "/__starter-api" # TODO - should be excluded from preview in the first place
-title = "API Server"
+previewPath = "/"
+title = "Jahiz"
 version = "1.0.0"
 id = "3B4_FFSkEVBkAeYMFRJ2e"
 
 [[services]]
-localPort = 8080
+localPort = 5000
 name = "API Server"
-paths = ["/__starter-api"]
+paths = ["/"]
 
 [services.development]
-run = "pnpm --filter @workspace/api-server run dev"
+run = "cd ../.. && bash tools/replit-run.sh"
 
 [services.production]
 
 [services.production.build]
-args = ["pnpm", "--filter", "@workspace/api-server", "run", "build"]
+args = ["bash", "-c", "npm install --include=dev --no-audit --no-fund && npm run build"]
 
 [services.production.build.env]
 NODE_ENV = "production"
 
 [services.production.run]
 # we don't run through pnpm to make startup faster in production
-args = ["node", "--enable-source-maps", "artifacts/api-server/dist/index.mjs"]
+args = ["npm", "start"]
 
 [services.production.run.env]
-PORT = "8080"
+PORT = "5000"
 NODE_ENV = "production"
 
 [services.production.health.startup]
