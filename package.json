@@ -1,19 +1,21 @@
 {
-  "name": "workspace",
-  "version": "0.0.0",
-  "license": "MIT",
-  "scripts": {
-    "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
-    "build": "pnpm run typecheck && pnpm -r --if-present run build",
-    "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
-  },
+  "name": "qib-jahiz",
   "private": true,
-  "dependencies": {
-    "@replit/connectors-sdk": "^0.4.3"
+  "version": "0.1.0",
+  "description": "Jahiz - an agentic readiness and remediation layer for Qatar Islamic Bank's One Click Finance pre-approval. Demo prototype on synthetic data.",
+  "workspaces": ["packages/*", "apps/*"],
+  "scripts": {
+    "start": "npm run start --workspace @jahiz/server",
+    "build": "npm run build --workspace @jahiz/web",
+    "dev:web": "npm run dev --workspace @jahiz/web",
+    "dev:server": "npm run dev --workspace @jahiz/server",
+    "seed": "npm run seed --workspace @jahiz/server",
+    "check": "npm run check --workspace @jahiz/server",
+    "typecheck": "npm run typecheck --workspace @jahiz/domain && npm run typecheck --workspace @jahiz/server && npm run typecheck --workspace @jahiz/web",
+    "tokens": "npm run tokens --workspace @cognirise/atelier",
+    "contrast": "npm run contrast --workspace @cognirise/atelier",
+    "replit": "bash tools/replit-run.sh"
   },
-  "devDependencies": {
-    "prettier": "^3.9.6",
-    "typescript": "~5.9.3"
-  }
+  "overrides": { "rollup": "4.63.3", "vite": "7.3.6" },
+  "engines": { "node": ">=20" }
 }

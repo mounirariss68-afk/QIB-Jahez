@@ -1,20 +1,18 @@
-modules = ["nodejs-24"]
+modules = ["nodejs-20", "postgresql-16"]
+run = "bash tools/replit-run.sh"
+entrypoint = "apps/server/src/index.ts"
+
+[nix]
+channel = "stable-24_05"
+
+[env]
+PORT = "5000"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
 
 [deployment]
-router = "application"
 deploymentTarget = "autoscale"
-
-[deployment.postBuild]
-args = ["pnpm", "store", "prune"]
-env = { "CI" = "true" }
-
-[workflows]
-runButton = "Project"
-
-[agent]
-stack = "PNPM_WORKSPACE"
-expertMode = true
-
-[postMerge]
-path = "scripts/post-merge.sh"
-timeoutMs = 20000
+build = ["bash", "-c", "npm install --include=dev --no-audit --no-fund && npm run build"]
+run = ["npm", "start"]

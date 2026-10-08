@@ -1,0 +1,45 @@
+/* QIB typography, self-hosted. Open Sans is qib.com.qa's Latin face (wordmark, headings); Almarai its Arabic face; Inter for tables and figures. */
+@import "@fontsource/open-sans/latin-400.css";
+@import "@fontsource/open-sans/latin-600.css";
+@import "@fontsource/open-sans/latin-700.css";
+@import "@fontsource/almarai/arabic-400.css";
+@import "@fontsource/almarai/arabic-700.css";
+@import "@fontsource/inter/latin-400.css";
+@import "@fontsource/inter/latin-500.css";
+@import "@fontsource/inter/latin-600.css";
+@import "@fontsource/inter/latin-800.css";
+
+@import "@cognirise/atelier/styles.css";
+
+/* Arabic runs (customer-facing content) use Almarai and never letter-spacing, caps or monospace. */
+.ar, [dir="rtl"] { font-family: Almarai, Inter, system-ui, sans-serif; letter-spacing: 0 !important; text-transform: none; }
+.ar .font-mono, [dir="rtl"] .font-mono, .ltr { direction: ltr; unicode-bidi: isolate; }
+
+.scroll-thin { scrollbar-width: thin; }
+.table-clean { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table-clean th { text-align: start; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--color-muted-foreground); padding: 8px 10px; border-bottom: 1px solid color-mix(in oklab, var(--color-border) 80%, transparent); white-space: nowrap; }
+.table-clean td { padding: 9px 10px; border-bottom: 1px solid color-mix(in oklab, var(--color-border) 45%, transparent); vertical-align: top; }
+.table-clean tr:last-child td { border-bottom: 0; }
+.table-clean tbody tr.clickable { cursor: pointer; }
+.table-clean tbody tr.clickable:hover td { background: color-mix(in oklab, var(--color-primary) 6%, transparent); }
+.field { display: grid; gap: 6px; }
+.field > span { font-size: 12px; color: var(--color-muted-foreground); }
+.input { height: 38px; border-radius: 10px; border: 1px solid var(--color-border); background: color-mix(in oklab, var(--color-background) 55%, transparent); padding: 0 12px; font-size: 14px; color: var(--color-foreground); }
+.input:focus { outline: none; border-color: var(--color-primary); }
+textarea.input { height: auto; padding: 8px 12px; min-height: 72px; }
+select.input { padding-inline-end: 28px; }
+
+/* The Director's highlight: a ring that fades over three seconds on every record a step touched. */
+@keyframes jahiz-flash { 0% { box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-accent) 85%, transparent), 0 0 0 8px color-mix(in oklab, var(--color-accent) 25%, transparent); } 100% { box-shadow: 0 0 0 0 transparent; } }
+.flash { animation: jahiz-flash 3s ease-out 1; border-radius: 10px; }
+.flash-row td:first-child { box-shadow: inset 3px 0 0 var(--color-accent); }
+.flash-row td { background: color-mix(in oklab, var(--color-accent) 10%, transparent) !important; transition: background 3s ease-out; }
+
+/* The customer's phone (QIB Mobile demo). */
+.phone { width: 340px; min-height: 640px; border-radius: 40px; border: 10px solid #0b1220; background: #f4f6f8; box-shadow: 0 30px 60px -20px rgba(0,17,26,.45), inset 0 0 0 1px rgba(255,255,255,.08); position: relative; overflow: hidden; }
+.dark .phone { background: #0f1a24; }
+.phone-notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 120px; height: 24px; border-radius: 0 0 16px 16px; background: #0b1220; z-index: 2; }
+.phone-top { background: #002E5E; color: #fff; padding: 36px 18px 14px; }
+.phone-bubble { border-radius: 14px; padding: 10px 12px; font-size: 12.5px; line-height: 1.45; }
+.mail-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 10px 12px; border-bottom: 1px solid color-mix(in oklab, var(--color-border) 60%, transparent); cursor: pointer; }
+.mail-row:hover { background: color-mix(in oklab, var(--color-primary) 6%, transparent); }
