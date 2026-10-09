@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "klFNWeJCbT30-lhQEINxo"
+uri = "file://attached_assets/expo/qib-expo-console-qr.png"
+type = "image"
+title = "QIB Mobile — Expo console QR code"
+description = "The QR code printed by the current Expo workflow. Its connection is still blocked by the port mismatch; do not expect it to load until that is fixed."
+logical_id = "601a733f-a7e1-42ce-ba8d-75b409888c3b"
+content_hash = "sha256:352d272b09627795f1d6bf84b65736c5ea8c9fd16c60a262870fdb2f73348391"
+size = 916
+mtime_ms = 1791530214372
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:7113dfbc-179e-4ed8-b12b-8ff3796be294/601a733f-a7e1-42ce-ba8d-75b409888c3b/08f00693-467e-4c3f-8d7b-65b7851236a9"
+storage_version_token = "1791530228933164"
+content_type = "image/png"
