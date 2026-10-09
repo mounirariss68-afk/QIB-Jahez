@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { startGateway } from './expo-gateway.mjs';
 
 const mobileDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'apps', 'mobile');
 const require = createRequire(join(mobileDir, 'node_modules', 'expo', 'package.json'));
@@ -14,6 +15,7 @@ const session = `qib-${createHash('sha256')
   .digest('hex').slice(0, 20)}`;
 
 let metro;
+let gateway;
 let closing = false;
 let exitTimer;
 const startupTimer = setTimeout(() => {
@@ -28,6 +30,7 @@ async function shutdown(code) {
   exitTimer = setTimeout(() => process.exit(code), 5_000);
   metro?.kill('SIGTERM');
   await stopAsync();
+  gateway?.close();
   if (!metro || metro.exitCode !== null || metro.signalCode !== null) {
     clearTimeout(exitTimer);
     process.exit(code);
@@ -38,9 +41,10 @@ process.on('SIGTERM', () => void shutdown(0));
 process.on('SIGINT', () => void shutdown(0));
 
 try {
+  gateway = await startGateway();
   const url = await startAsync({
     session,
-    targetUrl: 'http://127.0.0.1:3000',
+    targetUrl: gateway.url,
     onStatusChange(status) {
       if (status === 'disconnected' && !closing) {
         console.error('Expo HTTPS tunnel disconnected. Restart QIB Mobile (Expo Go) to reconnect.');
@@ -50,12 +54,14 @@ try {
   });
   clearTimeout(startupTimer);
   process.env.EXPO_PACKAGER_PROXY_URL = url.href;
+  process.env.EXPO_PUBLIC_API_URL = url.href.replace(/\/$/, '');
+  console.log(`Mobile customer API: ${process.env.EXPO_PUBLIC_API_URL}/api/mobile`);
   console.log(`Expo HTTPS manifest: ${url.href}`);
   console.log(`Secure Expo Go URL: ${url.href.replace(/^https:/, 'exps:')}`);
   console.log('Use the secure QR supplied in chat rather than Metro\'s plain exp:// QR.');
   metro = spawn(process.execPath, [
     join(mobileDir, 'node_modules', 'expo', 'bin', 'cli'),
-    'start', '--go', '--port', '3000',
+    'start', '--go', '--port', '3000', '--clear',
   ], { cwd: mobileDir, env: process.env, stdio: 'inherit' });
   metro.on('error', (error) => {
     console.error(`Expo failed to start: ${error.message}`);

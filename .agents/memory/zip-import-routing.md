@@ -39,3 +39,9 @@ Physical iPhone development-server launches require Expo Go and Expo CLI to be s
 **How to apply:** Ask the user to run `npx expo login` themselves in the mobile package's Shell directory, using the same account as Expo Go, then tap Try Again. Do not request passwords or store account names. First-time sign-in does not require a server restart; switching accounts does.
 
 Reference: https://docs.expo.dev/troubleshooting/expo-go-sign-in-required/
+
+Mobile connectivity verification must cover the customer API and sign-in home payload, not only the Expo manifest and JavaScript bundle.
+
+**Why:** The native welcome screen opened on the user's iPhone, but its customer picker remained blank even though agent-side requests to the separate Replit API returned customers.
+
+**How to apply:** Prefer routing demo API requests through the same working HTTPS connection as the native bundle when phone behavior differs. Verify the bundled public API setting and the customer list/home responses through that connection, while preserving the imported native source and dependencies.
