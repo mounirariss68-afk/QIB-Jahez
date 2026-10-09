@@ -31,3 +31,11 @@ Do not equate successful agent-side manifest and bundle requests with a successf
 **Why:** The compatible iPhone Expo Go client rejected the manifest, and the user reported seeing Jahiz in Safari at the explicit secondary-port URL even while agent-side public requests returned Expo JSON.
 
 **How to apply:** Treat the device report as an unresolved discrepancy, not as proof of an outdated client. Isolate the Expo connection behind a separate standard-HTTPS host when secondary-port behavior differs, and distinguish server verification from physical-device verification in the handoff.
+
+Physical iPhone development-server launches require Expo Go and Expo CLI to be signed into the same Expo account. Signing out on the phone is not an anonymous-preview workaround.
+
+**Why:** After the tunnel delivered the manifest successfully, the phone explicitly rejected the unsigned-in CLI. Expo's official troubleshooting documentation confirms that both sides must be signed in, even though the server keeps running without an account warning.
+
+**How to apply:** Ask the user to run `npx expo login` themselves in the mobile package's Shell directory, using the same account as Expo Go, then tap Try Again. Do not request passwords or store account names. First-time sign-in does not require a server restart; switching accounts does.
+
+Reference: https://docs.expo.dev/troubleshooting/expo-go-sign-in-required/
