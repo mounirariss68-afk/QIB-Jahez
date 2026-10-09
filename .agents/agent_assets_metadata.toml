@@ -14,3 +14,17 @@ mtime_ms = 1791530214372
 storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:7113dfbc-179e-4ed8-b12b-8ff3796be294/601a733f-a7e1-42ce-ba8d-75b409888c3b/08f00693-467e-4c3f-8d7b-65b7851236a9"
 storage_version_token = "1791530228933164"
 content_type = "image/png"
+
+[[outputs]]
+id = "gmwfbBIeZ8MNfOzv5sSKD"
+uri = "file://attached_assets/expo/qib-expo-secure-qr.png"
+type = "image"
+title = "QIB Mobile — corrected Expo Go QR"
+description = "Install Expo Go, then scan this secure QR: iPhone with Camera, Android from inside Expo Go. Keep Jahiz and QIB Mobile (Expo Go) running."
+logical_id = "06cfa7eb-3b45-4b35-8030-71c5b65f86e3"
+content_hash = "sha256:881b1efbdae5f37e66c5f0cad8a57a022eb914189663614ac3355e0559600964"
+size = 917
+mtime_ms = 1791530432824
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:7113dfbc-179e-4ed8-b12b-8ff3796be294/06cfa7eb-3b45-4b35-8030-71c5b65f86e3/5652556a-5826-4b52-ac6a-dbcc77c0f402"
+storage_version_token = "1791530479019857"
+content_type = "image/png"
