@@ -28,3 +28,17 @@ mtime_ms = 1791530432824
 storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:7113dfbc-179e-4ed8-b12b-8ff3796be294/06cfa7eb-3b45-4b35-8030-71c5b65f86e3/5652556a-5826-4b52-ac6a-dbcc77c0f402"
 storage_version_token = "1791530479019857"
 content_type = "image/png"
+
+[[outputs]]
+id = "ztqM0PAmg_xm-c3_d43pu"
+uri = "file://attached_assets/expo/qib-expo-tunnel-qr.png"
+type = "image"
+title = "QIB Mobile — NEW iPhone connection QR"
+description = "Use this QR instead of both earlier codes. In Expo Go, go Home first, then scan with iPhone Camera and choose Open in Expo Go. Keep the mobile workflow running."
+logical_id = "b5c5606a-640a-43f7-ae66-d4db4de59be7"
+content_hash = "sha256:d365bd561aaa99a5b5655266aaa320771175393a627d99a38b964d270e92b919"
+size = 743
+mtime_ms = 1791531753549
+storage_uri = "gcs://replit-rams-assets-sisko/rams/assets/repl:7113dfbc-179e-4ed8-b12b-8ff3796be294/b5c5606a-640a-43f7-ae66-d4db4de59be7/e7cb3abd-b4f3-4073-ac4b-d0828e22a917"
+storage_version_token = "1791531818521583"
+content_type = "image/png"

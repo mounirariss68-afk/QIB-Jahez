@@ -25,3 +25,9 @@ Prefer matching Metro's internal port to a supported public external port rather
 **Why:** The public HTTPS manifest and native bundle succeeded after aligning the ports, while the plain HTTP endpoint returned an error. The console still generated a plain `exp://` QR even though the bundler proxy URL used HTTPS.
 
 **How to apply:** Check the public manifest and its actual native bundle URL, then provide a QR encoding the secure Expo Go link. Preserve app code and package versions when fixing connection-only problems.
+
+Do not equate successful agent-side manifest and bundle requests with a successful physical-phone launch.
+
+**Why:** The compatible iPhone Expo Go client rejected the manifest, and the user reported seeing Jahiz in Safari at the explicit secondary-port URL even while agent-side public requests returned Expo JSON.
+
+**How to apply:** Treat the device report as an unresolved discrepancy, not as proof of an outdated client. Isolate the Expo connection behind a separate standard-HTTPS host when secondary-port behavior differs, and distinguish server verification from physical-device verification in the handoff.
