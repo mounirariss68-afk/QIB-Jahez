@@ -1,4 +1,10 @@
-modules = ["nodejs-20", "postgresql-16", "python-base-3.13"]
+# Jahiz on Replit. Press Run: installs once, builds the web app, creates and
+# seeds the database on first start, and serves everything on one port.
+# The second workflow, "QIB Mobile (Expo Go)", starts the phone mock-up in
+# apps/mobile and prints its QR code (Metro on 8081, reachable on external
+# port 3000). Remove the 8081 port mapping before publishing: a deployment
+# may expose only one port.
+modules = ["nodejs-20", "postgresql-16"]
 run = "bash tools/replit-run.sh"
 entrypoint = "apps/server/src/index.ts"
 
@@ -11,6 +17,33 @@ PORT = "5000"
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 8081
+externalPort = 3000
+
+[workflows]
+runButton = "Jahiz"
+
+[[workflows.workflow]]
+name = "Jahiz"
+author = "agent"
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash tools/replit-run.sh"
+waitForPort = 5000
+
+[[workflows.workflow]]
+name = "QIB Mobile (Expo Go)"
+author = "agent"
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash tools/replit-mobile.sh"
+waitForPort = 8081
 
 [deployment]
 deploymentTarget = "autoscale"

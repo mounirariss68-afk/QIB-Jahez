@@ -32,6 +32,14 @@ The **Director bar** docks at the bottom of the screen when a scenario starts. E
 
 Other things worth showing by hand: **Customer app** (any customer's phone, with the push, the secure message, upload and reply — what the customer does there enters the inbound pipeline as a real app event would); **Communications → Mailbox simulator** (the e-mail channel, with a reply composer); **Triggers** (fire the scan, the due messages or the clock yourself); **Policies** (every parameter per segment, the clauses the agents cite, the versions); **Dalil** (the rail on the left: ask why a customer is not eligible, what is waiting on you, what Hami blocked, what a policy says; it answers from the same data the screens use, cites the clause and prepares actions for you to confirm).
 
+## QIB Mobile (demo) on your phone — Expo Go
+
+`apps/mobile` is a mock-up of the QIB Mobile app, built with Expo so it runs on a real phone through the free **Expo Go** app (App Store / Google Play). It follows the structure QIB describes for its app — a customised dashboard, My Products, the Smart button, Pay & Transfer, More, Profile with My Personal Data — in QIB's colours, in English and Arabic, and it talks to the same Jahiz server: the push and secure messages Jahiz sends appear on the phone within seconds; a document photographed with the camera (or a demo specimen) enters the inbound pipeline exactly as the web shell's Customer app screen does, Fahis reads it, the checker approves in the Jahiz inbox, and the One Click offer appears on the phone; accepting it runs the four steps (amount and tenor, summary, OTP and e-signature, funds on the way) and logs the acceptance in Jahiz. Pay & Transfer, the Smart button's extras and the More services are shown, not executed, and say so.
+
+To run it on Replit: start the second workflow, **QIB Mobile (Expo Go)** (the workflow picker next to the Run button). The first start installs the app's packages (about a minute). The console prints a QR code; scan it with the phone's camera (iPhone) or from inside Expo Go (Android). Two things the phone needs: the Replit app's development URL must not be private (Developer tools → Networking → "Private development URL" off, otherwise the phone is redirected to a Replit sign-in and the app cannot load), and the Jahiz workflow must be running, since the phone reads from it. The same URL on external port 3000 (`https://<your-dev-domain>:3000`) opens the web version of the mock-up in any browser, which is a useful fallback on a projector. If the phone cannot reach the bundler, set the secret `EXPO_TUNNEL=1` and restart the workflow: Expo then routes the bundle through its own tunnel.
+
+Sign in on the phone by picking a demo customer (the edge cases are first; EC02 is the QID story). Face ID is wired but optional. Every record is synthetic.
+
 ## What's real and what's simulated
 
 - **Real:** the eligibility arithmetic (the twenty reasons, the capacity and cap calculation, the annuity factor, the tenor rules), the policy model (about a hundred parameters in ten domains with per-segment values, versioned, with an approver per domain), the guard (Hami: do-not-contact, consent, channel opt-outs, status, arrears, segment channel rules, RM approval, service windows, Friday and holidays, Ramadan, contact caps), the workflow engine with its human steps and approvals, the maker-checker on every record write, the calendar, the templates in English and Arabic, the audit trail and the integration log. With Replit AI Integrations connected: Dalil's conversation, Mustaqbil's classification of free-text replies, Fahis's reading of documents (text for the synthetic specimens, vision for a real image uploaded in the customer app), and the drafts Munadi and Muwathiq prepare for a person. Everything that *decides* is deterministic.
@@ -56,10 +64,11 @@ apps/server            Express 5 API, workflow engine, agents, channels, custome
   src/seed/               generator, edge cases, sixty-day replay, seeded-state snapshot
   src/tools/check-world.ts  `npm run check`: 21 arithmetic and policy checks over the live world
 apps/web               React 19 / Vite 7 / Tailwind 4 on the Cognirise Atelier design system
+apps/mobile            QIB Mobile (demo): Expo SDK 57 app for Expo Go, standalone package (own node_modules), talks to /api/mobile
 packages/domain        reasons, eligibility, policy catalogue, calendar, guard, templates, agents, workflows, personas, scenarios
 packages/design-system Atelier, rebranded for QIB
 db/schema.sql          core (simulated bank) and layer (the agentic layer)
 design/DESIGN.md       the design (v2); research/ the regulatory and practice notes it rests on
 ```
 
-Environment: `DATABASE_URL` (set by Replit's Database tool), `AI_INTEGRATIONS_ANTHROPIC_BASE_URL` and `AI_INTEGRATIONS_ANTHROPIC_API_KEY` (set by Replit AI Integrations), `PORT` (5000 on Replit). Nothing else.
+Environment: `DATABASE_URL` (set by Replit's Database tool), `AI_INTEGRATIONS_ANTHROPIC_BASE_URL` and `AI_INTEGRATIONS_ANTHROPIC_API_KEY` (set by Replit AI Integrations), `PORT` (5000 on Replit); for the phone mock-up, `REPLIT_DEV_DOMAIN` (set by Replit) and optionally `EXPO_TUNNEL=1`. Nothing else.

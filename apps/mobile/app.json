@@ -1,0 +1,57 @@
+{
+  "expo": {
+    "name": "QIB Mobile (demo)",
+    "slug": "qib-mobile-demo",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "qibmobiledemo",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#002E5E"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "ai.cognirise.qib.mobile.demo",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Take a photo of your document to upload it.",
+        "NSPhotoLibraryUsageDescription": "Choose a photo of your document to upload it.",
+        "NSFaceIDUsageDescription": "Sign in with Face ID (demo)."
+      }
+    },
+    "android": {
+      "package": "ai.cognirise.qib.mobile.demo",
+      "adaptiveIcon": {
+        "backgroundColor": "#0075B0",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choose a photo of your document to upload it.",
+          "cameraPermission": "Take a photo of your document to upload it."
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Sign in with Face ID (demo)."
+        }
+      ]
+    ],
+    "extra": {
+      "demo": true
+    }
+  }
+}

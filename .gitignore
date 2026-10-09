@@ -3,3 +3,5 @@ apps/web/dist/
 .env
 *.log
 __pycache__/
+apps/mobile/node_modules/
+apps/mobile/.expo/

@@ -4,10 +4,10 @@
  * unblock, and recommends. A1: Credit Policy decides.
  */
 import type { PoolClient } from 'pg';
-import type { Policy } from '@jahiz/domain';
+import { qualify, type Policy } from '@jahiz/domain';
 import { aiConfigured, createMessage } from '../ai.js';
 import { now, today } from '../clock.js';
-import { external, type Ctx } from '../core/connector.js';
+import { external, loadFacts, type Ctx } from '../core/connector.js';
 import { addActivity, addTrail } from '../engine/core.js';
 
 export type Pack = { employer: any; criteria: { key: string; label: string; ok: boolean; value: string; required: string; clause: string }[]; affected: { total: number; blockedOnlyByEmployer: number; eligibleIfApproved: number; customers: string[] }; recommendation: 'APPROVE' | 'DECLINE' | 'REVIEW'; narrative: string; mode: 'claude' | 'offline' };
@@ -16,9 +16,12 @@ export async function buildPack(c: PoolClient, employerId: string, policy: Polic
   const e = (await c.query(`SELECT * FROM core.employers WHERE id=$1`, [employerId])).rows[0];
   if (!e) throw new Error(`Employer ${employerId} not found`);
   const staff = (await c.query(`SELECT customer_id FROM core.employment WHERE employer_id=$1`, [employerId])).rows.map((r: any) => r.customer_id as string);
-  const results = (await c.query(`SELECT DISTINCT ON (customer_id) customer_id, eligible, reason_codes FROM core.preapproval_results WHERE customer_id = ANY($1) ORDER BY customer_id, run_id DESC`, [staff])).rows;
-  const onlyEmployer = results.filter((r: any) => !r.eligible && r.reason_codes.length === 1 && r.reason_codes[0] === 'R02').length;
-  const anyEmployer = results.filter((r: any) => !r.eligible && r.reason_codes.includes('R02')).length;
+  // Live qualification of the staff (not the stored results: the pack is often built inside the scan, before that scan's results are written).
+  const facts = await loadFacts({ c, actor: 'muwathiq' }, staff);
+  const results: { customer_id: string; eligible: boolean; reason_codes: string[] }[] = [];
+  for (const id of staff) { const f = facts.get(id); if (!f) continue; const q = qualify(f, policy, today()); results.push({ customer_id: id, eligible: q.eligible, reason_codes: (q.reasons as string[]).filter((x) => x !== 'R20') }); }
+  const onlyEmployer = results.filter((r) => !r.eligible && r.reason_codes.length === 1 && r.reason_codes[0] === 'R02').length;
+  const anyEmployer = results.filter((r) => !r.eligible && r.reason_codes.includes('R02')).length;
   const crOk = !!e.cr_number && (!e.cr_valid_to || e.cr_valid_to >= today());
   const criteria = [
     { key: 'cr', label: 'Valid commercial registration', ok: crOk, value: e.cr_number ? `${e.cr_number} to ${e.cr_valid_to ?? '—'}` : 'none', required: 'valid CR', clause: 'POL-03 §5.1' },

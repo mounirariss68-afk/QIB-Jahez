@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "description": "Jahiz - an agentic readiness and remediation layer for Qatar Islamic Bank's One Click Finance pre-approval. Demo prototype on synthetic data.",
-  "workspaces": ["packages/*", "apps/*"],
+  "workspaces": ["packages/*", "apps/server", "apps/web"],
   "scripts": {
     "start": "npm run start --workspace @jahiz/server",
     "build": "npm run build --workspace @jahiz/web",
