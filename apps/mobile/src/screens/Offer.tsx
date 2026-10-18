@@ -16,7 +16,7 @@ const RATE = 0.06; // indicative profit rate p.a. (POL-04 indicativeRatePct defa
 const instalment = (amount: number, tenor: number) => { const r = RATE / 12; return amount * r / (1 - Math.pow(1 + r, -tenor)); };
 
 export function OfferScreen({ navigation }: any) {
-  const { home, customerId, lang, tr, refresh } = useApp();
+  const { home, customerId, lang, tr, refreshAfterAction } = useApp();
   const max = home?.offer?.amount ?? 0;
   const [step, setStep] = useState(1);
   const [amount, setAmount] = useState(max);
@@ -29,7 +29,7 @@ export function OfferScreen({ navigation }: any) {
   if (!home || !customerId) return null;
   const amounts = [0.25, 0.5, 0.75, 1].map((p) => Math.round(max * p / 500) * 500).filter((v, i, a) => v > 0 && a.indexOf(v) === i);
   const tenors = [12, 24, 36, 48, 60].filter((t) => t <= 60);
-  const accept = async () => { setBusy(true); try { const r = await api.accept(customerId, amount, tenor); setRef(r.reference); setStep(4); await refresh(); } finally { setBusy(false); } };
+  const accept = async () => { setBusy(true); try { const r = await api.accept(customerId, amount, tenor); setRef(r.reference); setStep(4); await refreshAfterAction(); } finally { setBusy(false); } };
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>

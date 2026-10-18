@@ -9,17 +9,17 @@ import { Card, Chip, Row, T } from '../ui';
 import { Header } from './Header';
 
 export function InboxScreen() {
-  const { home, customerId, lang, tr, refresh, loading, rtl } = useApp();
+  const { home, customerId, lang, tr, refresh, refreshAfterAction, refreshing, rtl } = useApp();
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   useEffect(() => { if (customerId && home?.inbox.some((m) => !m.read_at && m.kind !== 'OUTGOING')) api.read(customerId).catch(() => {}); }, [customerId, home?.inbox.length]);
   if (!home || !customerId) return null;
-  const send = async () => { if (!text.trim()) return; setBusy(true); try { await api.reply(customerId, text.trim()); setText(''); await refresh(); } catch (e: any) { Alert.alert(tr('send'), e.message); } finally { setBusy(false); } };
+  const send = async () => { if (!text.trim()) return; setBusy(true); try { await api.reply(customerId, text.trim()); setText(''); await refreshAfterAction(); } catch (e: any) { Alert.alert(tr('send'), e.message); } finally { setBusy(false); } };
   const items = [...home.inbox].sort((a, b) => a.at.localeCompare(b.at));
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: C.bg }}>
       <Header title={tr('inbox')} back />
-      <ScrollView contentContainerStyle={{ padding: SP.md, paddingBottom: 20 }} refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} />}>
+      <ScrollView contentContainerStyle={{ padding: SP.md, paddingBottom: 20 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
         {items.map((m) => {
           const mine = m.kind === 'OUTGOING';
           return (

@@ -8,13 +8,13 @@ import { Btn, Card, Chip, Row, Section, T } from '../ui';
 import { Header } from './Header';
 
 export function ProductsScreen({ navigation }: any) {
-  const { home, lang, tr, refresh, loading, rtl } = useApp();
+  const { home, lang, tr, refresh, refreshing, rtl } = useApp();
   if (!home) return null;
   const products: Record<string, string> = { PERSONAL: lang === 'ar' ? 'تمويل شخصي' : 'Personal finance', AUTO_IJARA: lang === 'ar' ? 'إجارة سيارات' : 'Auto Ijara', HOME: lang === 'ar' ? 'تمويل عقاري' : 'Home finance' };
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <Header title={tr('products')} />
-      <ScrollView contentContainerStyle={{ padding: SP.md, paddingBottom: 110 }} refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} />}>
+      <ScrollView contentContainerStyle={{ padding: SP.md, paddingBottom: 110 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
         {home.offer ? (
           <Card tone="navy"><Row between><T color="#fff" bold>{tr('oneClick')}</T><Ionicons name="flash" size={16} color={C.orange} /></Row><T color="#CCE3EF" size={13} style={{ marginTop: 4 }}>{tr('preApproved')} {qar(home.offer.amount)}</T><Btn label={tr('acceptOneClick')} kind="orange" onPress={() => navigation.navigate('Offer')} style={{ marginTop: SP.sm }} /></Card>
         ) : null}
