@@ -20,6 +20,10 @@ externalPort = 80
 localPort = 8081
 externalPort = 8081
 
+[[ports]]
+localPort = 8082
+externalPort = 3002
+
 [workflows]
 runButton = "Project"
 
@@ -59,3 +63,7 @@ args = "QIB Mobile (Expo Go)"
 deploymentTarget = "autoscale"
 build = ["bash", "-c", "npm install --include=dev --no-audit --no-fund && npm run build"]
 run = ["npm", "start"]
+
+[postMerge]
+path = "tools/post-merge.sh"
+timeoutMs = 180000
