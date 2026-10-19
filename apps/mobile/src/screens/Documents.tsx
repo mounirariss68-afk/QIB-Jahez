@@ -16,7 +16,7 @@ import { Header } from './Header';
 const STATE_TONE: Record<string, 'muted' | 'ok' | 'warn' | 'danger'> = { RECEIVED: 'muted', PROPOSED: 'warn', REVIEW: 'warn', REJECT_RECOMMENDED: 'warn', APPLIED: 'ok', REJECTED: 'danger' };
 
 export function DocumentsScreen({ route }: any) {
-  const { home, customerId, lang, tr, refresh, loading } = useApp();
+  const { home, customerId, lang, tr, refresh, refreshAfterAction, refreshing } = useApp();
   const [open, setOpen] = useState<string | null>(route?.params?.upload ?? null);
   const [specimens, setSpecimens] = useState<Specimen[]>([]);
   const [busy, setBusy] = useState(false);
@@ -30,7 +30,7 @@ export function DocumentsScreen({ route }: any) {
 
   const send = async (body: Parameters<typeof api.upload>[1]) => {
     setBusy(true);
-    try { await api.upload(customerId, body); setOpen(null); setPreview(null); await refresh(); Alert.alert(tr('uploadDoc'), tr('uploaded')); }
+    try { await api.upload(customerId, body); setOpen(null); setPreview(null); await refreshAfterAction(); Alert.alert(tr('uploadDoc'), tr('uploaded')); }
     catch (e: any) { Alert.alert(tr('uploadDoc'), e.message); }
     finally { setBusy(false); }
   };
@@ -48,7 +48,7 @@ export function DocumentsScreen({ route }: any) {
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <Header title={tr('personalData')} back />
-      <ScrollView contentContainerStyle={{ padding: SP.md, paddingBottom: 110 }} refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} />}>
+      <ScrollView contentContainerStyle={{ padding: SP.md, paddingBottom: 110 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
         {home.ask?.doc ? <Card style={{ borderColor: C.orange, borderWidth: 1.5, marginBottom: SP.md }}><Chip tone="warn">{tr('actionNeeded')}</Chip><T bold style={{ marginTop: 6 }}>{lang === 'ar' ? home.ask.ar : home.ask.en}</T><Btn label={tr('uploadDoc')} icon="cloud-upload-outline" onPress={() => setOpen(home.ask!.doc!)} style={{ marginTop: SP.sm }} /></Card> : null}
         <Section title={tr('documents')}>
           {home.documents.map((d) => (

@@ -8,6 +8,12 @@ An imported app can serve its page successfully while its API fails because a st
 
 **How to apply:** Use a managed service for the imported application and verify its running state, the proxied page, and the proxied API. Managed artifact commands execute from the artifact directory, so change to the imported app's root before invoking its supplied Run script. Preserve the supplied app and Run command; resolve service configuration rather than rewriting working source.
 
+After task merges, a successful setup/reconciliation result alone does not prove every managed service is running.
+
+**Why:** Reconciliation reported success while the API workflow was marked finished, even though its endpoint still responded. Explicitly restarting the managed API workflow restored both its running state and healthy endpoint.
+
+**How to apply:** Check the API and Expo workflow states as well as HTTP responses after reconciliation. Start the existing managed API service if needed rather than launching a duplicate server or changing the supplied Run command.
+
 When starting a supplied secondary workflow, Replit may automatically replace its explicit external-port mapping with the internal port. Verify the public endpoint after startup, not just the local listener.
 
 **Why:** The supplied Expo workflow started successfully, but its external mapping changed from 3000 to 8081, leaving the printed phone URL unreachable. Restoring the supplied configuration through the validated configuration callback made the public Metro status and Expo manifest respond without another restart.

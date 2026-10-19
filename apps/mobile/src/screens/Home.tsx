@@ -12,7 +12,7 @@ import { C, R, SP, qar, dateTime } from '../theme';
 import { Btn, Card, Chip, DemoBanner, IconTile, Row, Section, T } from '../ui';
 
 export function HomeScreen({ navigation }: any) {
-  const { home, lang, tr, refresh, loading, rtl } = useApp();
+  const { home, lang, tr, refresh, refreshing, rtl } = useApp();
   if (!home) return null;
   const c = home.customer;
   const unread = home.inbox.filter((m) => !m.read_at && m.kind !== 'OUTGOING').length;
@@ -40,7 +40,7 @@ export function HomeScreen({ navigation }: any) {
         ) : null}
       </LinearGradient>
       <DemoBanner />
-      <ScrollView contentContainerStyle={{ padding: SP.md, paddingBottom: 110 }} refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} />}>
+      <ScrollView contentContainerStyle={{ padding: SP.md, paddingBottom: 110 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
         {home.offer ? (
           <Card tone="navy" style={{ marginBottom: SP.md }}>
             <Row between><T size={11} bold color="#CCE3EF" style={{ letterSpacing: 1 }}>{tr('oneClick').toUpperCase()}</T><Ionicons name="flash" size={16} color={C.orange} /></Row>
