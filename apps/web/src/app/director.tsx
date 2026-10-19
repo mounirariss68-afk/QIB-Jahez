@@ -11,19 +11,26 @@ import { cn } from '@cognirise/atelier/lib/utils';
 import { Activity, ChevronLeft, ChevronRight, Hand, Loader2, Pause, Play, Square, Zap } from 'lucide-react';
 import { useApi } from '../lib/api';
 import { dateTime, title } from '../lib/format';
-import { useApp } from './state';
+import { HAND_EVENT, useApp } from './state';
+import { usePresent } from './present';
 import { AgentTag, Btn, Chip, Clause, PERSONA_SHORT, StatusChip } from './ui';
 
 export function DirectorBar() {
   const { director, stepScenario, stopScenario, setAuto, open, go, session, switchPersona, completeStep } = useApp();
-  // A pending hand step (Present mode, App view): ask the server every two seconds whether the room did it.
-  const pendingKey = director?.pending && !director.busy ? `${director.key}:${director.index}` : null;
+  // Present mode, App view: ask the server every two seconds whether the room did a hand action since this step was reached.
+  const { present } = usePresent();
+  const pollKey = present && director && !director.busy && director.status === 'running' ? `${director.key}:${director.index}` : null;
   useEffect(() => {
-    if (!pendingKey) return;
-    const [key, idx] = pendingKey.split(':'); let stop = false;
-    const t = window.setInterval(async () => { try { const r = await api<{ done: boolean }>(`/scenarios/${key}/pending?index=${idx}`); if (!stop && r.done) completeStep(); } catch { /* next tick */ } }, 2000);
+    if (!present) return;
+    const on = (e: Event) => { const k = (e as CustomEvent).detail?.kind as string; if (k && HAND_EVENT[k]) completeStep(k); };
+    window.addEventListener('jahiz:action', on); return () => window.removeEventListener('jahiz:action', on);
+  }, [present, completeStep]);
+  useEffect(() => {
+    if (!pollKey) return;
+    const [key, idx] = pollKey.split(':'); let stop = false;
+    const t = window.setInterval(async () => { try { const r = await api<{ done: boolean; kind?: string }>(`/scenarios/${key}/pending?index=${idx}`); if (!stop && r.done) completeStep(r.kind); } catch { /* next tick */ } }, 2000);
     return () => { stop = true; window.clearInterval(t); };
-  }, [pendingKey, completeStep]);
+  }, [pollKey, completeStep]);
   if (!director) return null;
   const st = director.steps[Math.max(0, director.index)];
   const ch = director.changes;

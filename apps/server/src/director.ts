@@ -150,23 +150,32 @@ export async function startScenario(key: string) {
 
 /** Steps a person in the room can do by hand instead of the Director: the customer on the phone, or the decider in the bank pane. */
 export const HAND_KINDS = new Set(['customer_upload', 'customer_reply', 'customer_accept_offer', 'decide', 'decide_employer', 'approve_policy']);
-const waiting = new Map<string, Awaited<ReturnType<typeof snapshot>>>();
+/** Per step: the state when the Director reached it (after its own execution), to see what the room did since. */
+const arrived = new Map<string, Awaited<ReturnType<typeof snapshot>>>();
 
 /**
- * Has the room done the pending hand step since the Director arrived at it?
- * Judged from the trail since the 'wait' snapshot, so it works whether the
- * action came from the web phone, the real phone through /api/mobile, or a
- * decision in any pane.
+ * Has the room done a hand action since the Director reached this step?
+ * Judged from the trail since the step's arrival snapshot (taken after the
+ * step's own execution, so the Director's work is never mistaken for the
+ * room's). Works whether the action came from the web phone, the real phone
+ * through /api/mobile, or a decision in any pane — and at any step, not only
+ * a waiting one: a customer who uploads at step 1 moves the story to the
+ * upload step and beyond.
  */
-export async function pendingDone(key: string, index: number): Promise<{ done: boolean; known: boolean; by?: string }> {
+export async function handDone(key: string, index: number): Promise<{ done: boolean; known: boolean; kind?: string }> {
   const s = SCENARIO[key]; const st = s?.steps[index]; if (!st) return { done: false, known: false };
-  const snap = waiting.get(`${key}:${index}`); if (!snap) return { done: false, known: false };
-  const kind = st.action.kind;
-  const q = async (sql: string, params: unknown[] = []) => (await pool.query(sql, [snap.t, ...params])).rows[0] as any;
-  if (kind === 'customer_upload') { const r = await q(`SELECT MAX(id) id FROM layer.trail WHERE id > $1 AND act IN ('RECEIVE','EXAMINE')`); if (r?.id) return { done: true, known: true, by: 'upload' }; const d = (await pool.query(`SELECT COALESCE(MAX(id),0)::int id FROM layer.documents`)).rows[0]; return { done: Number(d.id) > Number(snap.d), known: true, by: 'upload' }; }
-  if (kind === 'customer_reply') { const r = await q(`SELECT MAX(id) id FROM layer.trail WHERE id > $1 AND act IN ('CLASSIFY','RECEIVE')`); return { done: !!r?.id, known: true, by: 'reply' }; }
-  if (kind === 'customer_accept_offer') { const r = await q(`SELECT MAX(id) id FROM layer.trail WHERE id > $1 AND act = 'ACCEPT'`); return { done: !!r?.id, known: true, by: 'accept' }; }
-  if (kind === 'decide' || kind === 'decide_employer' || kind === 'approve_policy') { const r = await q(`SELECT MAX(id) id FROM layer.trail WHERE id > $1 AND actor_type = 'HUMAN'`); return { done: !!r?.id, known: true, by: 'decision' }; }
+  const snap = arrived.get(`${key}:${index}`); if (!snap) return { done: false, known: false };
+  const r = (await pool.query(`SELECT
+      COUNT(*) FILTER (WHERE act IN ('RECEIVE','EXAMINE'))::int AS upload,
+      COUNT(*) FILTER (WHERE act = 'CLASSIFY')::int AS reply,
+      COUNT(*) FILTER (WHERE act = 'ACCEPT')::int AS accept,
+      COUNT(*) FILTER (WHERE actor_type = 'HUMAN')::int AS decision
+    FROM layer.trail WHERE id > $1`, [snap.t])).rows[0];
+  const docs = (await pool.query(`SELECT COALESCE(MAX(id),0)::int id FROM layer.documents`)).rows[0];
+  if (Number(r.upload) || Number(docs.id) > Number(snap.d)) return { done: true, known: true, kind: 'customer_upload' };
+  if (Number(r.decision)) return { done: true, known: true, kind: 'decide' };
+  if (Number(r.accept)) return { done: true, known: true, kind: 'customer_accept_offer' };
+  if (Number(r.reply)) return { done: true, known: true, kind: 'customer_reply' };
   return { done: false, known: true };
 }
 
@@ -181,8 +190,7 @@ export async function runStep(key: string, index: number, mode: 'run' | 'wait' |
   const st: DirectorStep | undefined = s.steps[index]; if (!st) throw new Error(`No step ${index}`);
   const edge = await edgeMap();
   const wkey = `${key}:${index}`;
-  const snap = mode === 'done' ? (waiting.get(wkey) ?? await snapshot()) : await snapshot();
-  if (mode === 'wait') waiting.set(wkey, snap); else waiting.delete(wkey);
+  const snap = mode === 'done' ? (arrived.get(wkey) ?? await snapshot()) : await snapshot();
   const t0 = Date.now();
   let result = ''; let error: string | null = null;
   if (mode === 'run') { try { result = await execute(st.action, key, edge); } catch (e: any) { error = e.message; console.error('[director]', key, st.id, e); } }
@@ -190,6 +198,7 @@ export async function runStep(key: string, index: number, mode: 'run' | 'wait' |
   else { result = 'Done by hand'; }
   invalidateHealth();
   const changes = await diff(snap);
+  arrived.set(wkey, mode === 'wait' ? snap : await snapshot()); // what the room does from here on is the room's
   const screen = await resolveScreen(st.screen, edge);
   const run = (await pool.query(`SELECT * FROM layer.scenario_runs WHERE key=$1 AND status='RUNNING' ORDER BY id DESC LIMIT 1`, [key])).rows[0];
   if (run) await pool.query(`UPDATE layer.scenario_runs SET step_index=$2, log = log || $3::jsonb ${index >= s.steps.length - 1 ? ", status='DONE', finished_at=$4" : ''} WHERE id=$1`, index >= s.steps.length - 1 ? [run.id, index, JSON.stringify([{ step: st.id, result, error, ms: Date.now() - t0, at: now() }]), now()] : [run.id, index, JSON.stringify([{ step: st.id, result, error, ms: Date.now() - t0, at: now() }])]);

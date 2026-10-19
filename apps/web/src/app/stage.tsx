@@ -55,19 +55,19 @@ export function Stage() {
   // A hand action in the room (an upload on the phone, a decision in the bank pane) completes the pending step and the scenario moves on.
   const { completeStep } = useApp();
   useEffect(() => {
-    const on = (e: Event) => { const k = (e as CustomEvent).detail?.kind as string; const st = director?.steps[director.index]; if (director?.pending && st && (HAND_EVENT[k] ?? []).includes(st.action.kind)) completeStep(); };
+    const on = (e: Event) => { const k = (e as CustomEvent).detail?.kind as string; if (director && k && HAND_EVENT[k]) completeStep(k); };
     window.addEventListener('jahiz:action', on); return () => window.removeEventListener('jahiz:action', on);
   }, [director, completeStep]);
-  // ...and, independently of any browser event, the server is asked every two seconds whether the hand step happened (the real phone, another tab, a slow request).
-  const pendingKey = director?.pending && !director.busy ? `${director.key}:${director.index}` : null;
+  // ...and, independently of any browser event, the server is asked every two seconds whether the room did a hand action since this step was reached (the real phone, another tab, a slow request, an action taken early).
+  const pollKey = director && !director.busy && director.status === 'running' ? `${director.key}:${director.index}` : null;
   useEffect(() => {
-    if (!pendingKey) return;
-    const [key, idx] = pendingKey.split(':');
+    if (!pollKey) return;
+    const [key, idx] = pollKey.split(':');
     let stop = false;
-    const tick = async () => { try { const r = await api<{ done: boolean }>(`/scenarios/${key}/pending?index=${idx}`); if (!stop && r.done) completeStep(); } catch { /* next tick */ } };
+    const tick = async () => { try { const r = await api<{ done: boolean; kind?: string }>(`/scenarios/${key}/pending?index=${idx}`); if (!stop && r.done) completeStep(r.kind); } catch { /* next tick */ } };
     const t = window.setInterval(tick, 2000);
     return () => { stop = true; window.clearInterval(t); };
-  }, [pendingKey, completeStep]);
+  }, [pollKey, completeStep]);
   if (!present || !chapter) return null;
   return (
     <div className="space-y-3">
@@ -329,7 +329,15 @@ function DocumentFocus({ id }: { id: number }) {
   const mine = d.run && (d.run.status === 'WAITING' || d.run.status === 'ESCALATED') && d.run.waiting_on_persona === persona?.key;
   const conf = d.overall_confidence != null ? `${Math.round(Number(d.overall_confidence) * 100)}%` : null;
   const props: any[] = d.proposals ?? [];
-  const field = (p: any) => `${String(p.target ?? '').replace(/_/g, ' ')} ${String(p.field ?? '').replace(/_/g, ' ')}: ${p.old_value ?? '—'} → ${String(p.new_value ?? '').replace(/_/g, ' ').toLowerCase()}`;
+  // A proposal in one readable line: "QID renew: 30 Sept 2026 → valid to 4 Oct 2029", never raw JSON.
+  const val = (v: any): string => {
+    if (v === null || v === undefined || v === '') return '—';
+    const str = String(v);
+    try { const o = JSON.parse(str); if (o && typeof o === 'object') { const exp = o['expires on'] ?? o.expiresOn ?? o.expires ?? o.expiry; if (exp) return `valid to ${date(exp)}`; return Object.entries(o).filter(([k]) => !/image|source|ref|number/i.test(k)).slice(0, 2).map(([k, x]) => `${k} ${x}`).join(', ') || 'updated'; } } catch { /* plain value */ }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return date(str);
+    return str.replace(/_/g, ' ').toLowerCase();
+  };
+  const field = (p: any) => `${String(p.field ?? p.target ?? '').split('.').slice(-2).join(' ').replace(/_/g, ' ')}: ${val(p.old_value)} → ${val(p.new_value)}`;
   return (
     <div className="space-y-3">
       <div className="flex gap-3">

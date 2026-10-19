@@ -28,7 +28,7 @@ type Ctx = {
   caseRef: string | null; openCase: (ref: string | null) => void;
   director: Director | null; startScenario: (key: string) => Promise<void>; stepScenario: (dir: 1 | -1 | 0) => Promise<void>; stopScenario: () => void; setAuto: (b: boolean, ms?: number) => void;
   /** On the Stage, hand steps are reached without executing them; the room acts, or → lets the Director act. */
-  setHandSteps: (b: boolean) => void; completeStep: () => Promise<void>;
+  setHandSteps: (b: boolean) => void; completeStep: (kind?: string) => Promise<void>;
   highlight: { cases: Set<string>; messages: Set<number>; documents: Set<number>; tasks: Set<number>; customers: Set<string>; at: number };
   activityOpen: boolean; setActivityOpen: (b: boolean) => void;
 };
@@ -107,16 +107,29 @@ export function AppState({ children }: { children: ReactNode }) {
   }, [director, runIndex, loadSession, open, modeFor]);
   /** The room did the pending step by hand: record it, show what changed, then move on after a beat. */
   const completing = useRef(false);
-  const completeStep = useCallback(async () => {
+  /**
+   * The room did a hand action (`kind`: customer_upload, customer_reply,
+   * customer_accept_offer, decide). The story jumps to the next hand step
+   * that action completes — the pending one, or a later one if the room
+   * acted early — marks it done by hand, and moves on after a beat. Without
+   * a kind (the "Done, continue" button) the pending step is taken as done.
+   */
+  const completeStep = useCallback(async (kind?: string) => {
     const d = directorRef.current;
-    if (!d || !d.pending || d.busy || completing.current) return;
+    if (!d || d.busy || d.status !== 'running' || completing.current) return;
+    const accepts = kind ? (HAND_EVENT[kind] ?? []) : null;
+    let j = -1;
+    if (!accepts) { if (d.pending) j = d.index; }
+    else if (d.pending && accepts.includes(d.steps[d.index].action.kind)) j = d.index;
+    else j = d.steps.findIndex((s, i) => i > d.index && accepts.includes(s.action.kind));
+    if (j < 0) return;
     completing.current = true;
     try {
-      await runIndex(d.key, d.index, d.steps, 'done');
-      const next = d.index + 1;
+      await runIndex(d.key, j, d.steps, 'done');
+      const next = j + 1;
       if (next >= d.steps.length) return;
       await new Promise((r) => window.setTimeout(r, 1400));
-      const cur = directorRef.current; if (!cur || cur.key !== d.key || cur.index !== d.index) return;
+      const cur = directorRef.current; if (!cur || cur.key !== d.key || cur.index !== j) return;
       await runIndex(d.key, next, d.steps, modeFor(d.steps[next]));
     } finally { completing.current = false; }
   }, [runIndex, modeFor]);

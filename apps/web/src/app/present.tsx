@@ -22,7 +22,7 @@ import { Btn, Chip, Field, Note, Select } from './ui';
 
 // ------------------------------------------------------------------ model
 /** Shown in the Present bar so the room (and the presenter) can tell which build is running. Bump it with every change to Present mode or the Stage. */
-export const PRESENT_BUILD = '2.3';
+export const PRESENT_BUILD = '2.4';
 export type CardLayout = 'statement' | 'steps' | 'columns' | 'agenda';
 export type CardChapter = { kind: 'card'; id: string; layout: CardLayout; eyebrow?: string; title: string; lines: string[] };
 export type ScenarioChapter = { kind: 'scenario'; id: string; scenario: string; audience?: string; question?: string };

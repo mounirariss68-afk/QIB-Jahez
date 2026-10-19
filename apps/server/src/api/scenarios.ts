@@ -2,7 +2,7 @@
 import { Router } from 'express';
 import { SCENARIOS } from '@jahiz/domain';
 import { pool } from '../db.js';
-import { startScenario, runStep, resolveScreen, pendingDone } from '../director.js';
+import { startScenario, runStep, resolveScreen, handDone } from '../director.js';
 
 export const scenarios = Router();
 scenarios.post('/scenarios/:key/start', async (req, res) => {
@@ -12,9 +12,9 @@ scenarios.post('/scenarios/:key/step', async (req, res) => {
   const mode = req.body.mode === 'wait' || req.body.mode === 'done' ? req.body.mode : 'run';
   try { res.json(await runStep(req.params.key, Number(req.body.index ?? 0), mode)); } catch (e: any) { res.status(400).json({ error: e.message }); }
 });
-/** While a hand step waits: has the room done it? The Stage polls this, so the scenario moves on even when the action came from the real phone. */
+/** Has the room done a hand action since this step was reached? The Stage polls this, so the scenario moves on whoever acted and wherever. */
 scenarios.get('/scenarios/:key/pending', async (req, res) => {
-  try { res.json(await pendingDone(req.params.key, Number(req.query.index ?? 0))); } catch (e: any) { res.status(400).json({ error: e.message }); }
+  try { res.json(await handDone(req.params.key, Number(req.query.index ?? 0))); } catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 scenarios.post('/scenarios/stop', async (_req, res) => { await pool.query(`UPDATE layer.scenario_runs SET status='ABANDONED', finished_at=now() WHERE status='RUNNING'`); res.json({ ok: true }); });
 scenarios.get('/scenarios/:key', async (req, res) => {
