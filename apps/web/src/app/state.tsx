@@ -106,15 +106,19 @@ export function AppState({ children }: { children: ReactNode }) {
     await runIndex(director.key, next, director.steps, modeFor(director.steps[next]));
   }, [director, runIndex, loadSession, open, modeFor]);
   /** The room did the pending step by hand: record it, show what changed, then move on after a beat. */
+  const completing = useRef(false);
   const completeStep = useCallback(async () => {
     const d = directorRef.current;
-    if (!d || !d.pending || d.busy) return;
-    await runIndex(d.key, d.index, d.steps, 'done');
-    const next = d.index + 1;
-    if (next >= d.steps.length) return;
-    await new Promise((r) => window.setTimeout(r, 1400));
-    const cur = directorRef.current; if (!cur || cur.key !== d.key || cur.index !== d.index) return;
-    await runIndex(d.key, next, d.steps, modeFor(d.steps[next]));
+    if (!d || !d.pending || d.busy || completing.current) return;
+    completing.current = true;
+    try {
+      await runIndex(d.key, d.index, d.steps, 'done');
+      const next = d.index + 1;
+      if (next >= d.steps.length) return;
+      await new Promise((r) => window.setTimeout(r, 1400));
+      const cur = directorRef.current; if (!cur || cur.key !== d.key || cur.index !== d.index) return;
+      await runIndex(d.key, next, d.steps, modeFor(d.steps[next]));
+    } finally { completing.current = false; }
   }, [runIndex, modeFor]);
   useEffect(() => { directorRef.current = director; }, [director]);
   const stopScenario = useCallback(() => { post('/scenarios/stop').catch(() => {}); setDirector(null); setCaseRef(null); if (autoTimer.current) window.clearTimeout(autoTimer.current); }, []);

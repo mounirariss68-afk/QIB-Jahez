@@ -153,6 +153,24 @@ export const HAND_KINDS = new Set(['customer_upload', 'customer_reply', 'custome
 const waiting = new Map<string, Awaited<ReturnType<typeof snapshot>>>();
 
 /**
+ * Has the room done the pending hand step since the Director arrived at it?
+ * Judged from the trail since the 'wait' snapshot, so it works whether the
+ * action came from the web phone, the real phone through /api/mobile, or a
+ * decision in any pane.
+ */
+export async function pendingDone(key: string, index: number): Promise<{ done: boolean; known: boolean; by?: string }> {
+  const s = SCENARIO[key]; const st = s?.steps[index]; if (!st) return { done: false, known: false };
+  const snap = waiting.get(`${key}:${index}`); if (!snap) return { done: false, known: false };
+  const kind = st.action.kind;
+  const q = async (sql: string, params: unknown[] = []) => (await pool.query(sql, [snap.t, ...params])).rows[0] as any;
+  if (kind === 'customer_upload') { const r = await q(`SELECT MAX(id) id FROM layer.trail WHERE id > $1 AND act IN ('RECEIVE','EXAMINE')`); if (r?.id) return { done: true, known: true, by: 'upload' }; const d = (await pool.query(`SELECT COALESCE(MAX(id),0)::int id FROM layer.documents`)).rows[0]; return { done: Number(d.id) > Number(snap.d), known: true, by: 'upload' }; }
+  if (kind === 'customer_reply') { const r = await q(`SELECT MAX(id) id FROM layer.trail WHERE id > $1 AND act IN ('CLASSIFY','RECEIVE')`); return { done: !!r?.id, known: true, by: 'reply' }; }
+  if (kind === 'customer_accept_offer') { const r = await q(`SELECT MAX(id) id FROM layer.trail WHERE id > $1 AND act = 'ACCEPT'`); return { done: !!r?.id, known: true, by: 'accept' }; }
+  if (kind === 'decide' || kind === 'decide_employer' || kind === 'approve_policy') { const r = await q(`SELECT MAX(id) id FROM layer.trail WHERE id > $1 AND actor_type = 'HUMAN'`); return { done: !!r?.id, known: true, by: 'decision' }; }
+  return { done: false, known: true };
+}
+
+/**
  * mode 'run' (default): execute the step's action. 'wait': arrive at the step
  * without executing, so the presenter can do it by hand (the snapshot is kept
  * to diff later). 'done': the hand action happened; diff against that

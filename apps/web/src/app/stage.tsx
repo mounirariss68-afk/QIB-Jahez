@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { cn } from '@cognirise/atelier/lib/utils';
 import { Bot, Check, ExternalLink, Hand, Landmark, Smartphone, Zap } from 'lucide-react';
-import { useApi } from '../lib/api';
+import { api, useApi } from '../lib/api';
 import { date, dateShort, dateTime, maskQid, month, num, qar, title } from '../lib/format';
 import { HAND_EVENT, useApp } from './state';
 import { plainActivity } from './plain';
@@ -58,6 +58,16 @@ export function Stage() {
     const on = (e: Event) => { const k = (e as CustomEvent).detail?.kind as string; const st = director?.steps[director.index]; if (director?.pending && st && (HAND_EVENT[k] ?? []).includes(st.action.kind)) completeStep(); };
     window.addEventListener('jahiz:action', on); return () => window.removeEventListener('jahiz:action', on);
   }, [director, completeStep]);
+  // ...and, independently of any browser event, the server is asked every two seconds whether the hand step happened (the real phone, another tab, a slow request).
+  const pendingKey = director?.pending && !director.busy ? `${director.key}:${director.index}` : null;
+  useEffect(() => {
+    if (!pendingKey) return;
+    const [key, idx] = pendingKey.split(':');
+    let stop = false;
+    const tick = async () => { try { const r = await api<{ done: boolean }>(`/scenarios/${key}/pending?index=${idx}`); if (!stop && r.done) completeStep(); } catch { /* next tick */ } };
+    const t = window.setInterval(tick, 2000);
+    return () => { stop = true; window.clearInterval(t); };
+  }, [pendingKey, completeStep]);
   if (!present || !chapter) return null;
   return (
     <div className="space-y-3">
@@ -137,12 +147,19 @@ function Narration() {
 
 /** A pending hand step: the room acts, or → lets the Director act. */
 function YourMove({ kind, persona }: { kind: string; persona?: string }) {
+  const { completeStep, director } = useApp();
   const who = persona ? PERSONA_SHORT[persona] ?? persona : 'the decider';
   const text = kind === 'customer_upload' ? 'Upload the document on the phone (Documents tab), or press → and the Director uploads it.'
     : kind === 'customer_reply' ? 'Reply on the phone (Messages), or press → and the Director replies.'
     : kind === 'customer_accept_offer' ? 'Accept the offer on the phone, or press → and the Director accepts it.'
     : `Decide as ${who} in the bank pane, or press → and the Director decides as the script says.`;
-  return <p className="mt-2 flex items-start gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-[13px]"><Hand className="mt-0.5 h-4 w-4 shrink-0 text-primary" /><span><span className="font-semibold text-primary">Your move. </span>{text}</span></p>;
+  return (
+    <div className="mt-2 flex items-start gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-[13px]">
+      <Hand className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+      <span className="min-w-0 flex-1"><span className="font-semibold text-primary">Your move. </span>{text}</span>
+      <button type="button" disabled={director?.busy} onClick={() => completeStep()} title="If you did it and the scenario has not moved on, this moves it on" className="shrink-0 rounded-full border border-primary/50 px-2.5 py-1 text-[11px] font-medium text-primary hover:bg-primary/10 disabled:opacity-50">Done, continue</button>
+    </div>
+  );
 }
 
 /** The live log in plain language: who did what, oldest first, newest at the bottom, only what this scenario did. */

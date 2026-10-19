@@ -5,16 +5,25 @@
  * engine's events on every screen.
  */
 import { useEffect, useState } from 'react';
+import { api } from '../lib/api';
 import { Sheet, SheetContent, SheetTitle } from '@cognirise/atelier/components/ui/sheet';
 import { cn } from '@cognirise/atelier/lib/utils';
-import { Activity, ChevronLeft, ChevronRight, Loader2, Pause, Play, Square, Zap } from 'lucide-react';
+import { Activity, ChevronLeft, ChevronRight, Hand, Loader2, Pause, Play, Square, Zap } from 'lucide-react';
 import { useApi } from '../lib/api';
 import { dateTime, title } from '../lib/format';
 import { useApp } from './state';
 import { AgentTag, Btn, Chip, Clause, PERSONA_SHORT, StatusChip } from './ui';
 
 export function DirectorBar() {
-  const { director, stepScenario, stopScenario, setAuto, open, go, session, switchPersona } = useApp();
+  const { director, stepScenario, stopScenario, setAuto, open, go, session, switchPersona, completeStep } = useApp();
+  // A pending hand step (Present mode, App view): ask the server every two seconds whether the room did it.
+  const pendingKey = director?.pending && !director.busy ? `${director.key}:${director.index}` : null;
+  useEffect(() => {
+    if (!pendingKey) return;
+    const [key, idx] = pendingKey.split(':'); let stop = false;
+    const t = window.setInterval(async () => { try { const r = await api<{ done: boolean }>(`/scenarios/${key}/pending?index=${idx}`); if (!stop && r.done) completeStep(); } catch { /* next tick */ } }, 2000);
+    return () => { stop = true; window.clearInterval(t); };
+  }, [pendingKey, completeStep]);
   if (!director) return null;
   const st = director.steps[Math.max(0, director.index)];
   const ch = director.changes;
@@ -48,6 +57,7 @@ export function DirectorBar() {
             </p>
             <p className="mt-0.5 text-sm font-semibold">{st?.title}</p>
             <p className="mt-0.5 text-[13px] leading-relaxed text-foreground/90">{st?.narration}</p>
+            {director.pending ? <p className="mt-1.5 flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-[12px]"><Hand className="h-3.5 w-3.5 shrink-0 text-primary" /><span className="flex-1"><span className="font-semibold text-primary">Your move.</span> Do this step on screen ({st?.action.kind === 'customer_upload' ? 'upload on the phone' : st?.action.kind === 'customer_reply' ? 'reply on the phone' : st?.action.kind === 'customer_accept_offer' ? 'accept the offer on the phone' : 'decide in the inbox'}) and the scenario moves on, or press Step and the Director does it.</span><button type="button" disabled={director.busy} onClick={() => completeStep()} className="shrink-0 rounded-full border border-primary/50 px-2 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/10 disabled:opacity-50">Done, continue</button></p> : null}
             <p className="mt-1 flex flex-wrap items-center gap-2 text-[11px]"><Zap className="h-3 w-3 text-accent" /><span className="text-muted-foreground">Trigger:</span> <span className="font-medium">{st?.trigger}</span>{director.result ? <><span className="text-muted-foreground">· Result:</span> <span className="font-mono">{director.result}</span></> : null}{director.error ? <span className="text-danger">Error: {director.error}</span> : null}</p>
           </div>
           <div className="w-full lg:w-[380px]">

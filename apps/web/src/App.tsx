@@ -102,8 +102,10 @@ function Shell() {
   const { persona, route, go, session, setActivityOpen, director, setHandSteps } = useApp();
   const { present, item } = usePresent();
   const onStage = !!present && item?.type === 'scenario' && present.view === 'stage';
-  // On the Stage, hand steps (an upload, a decision) are reached without being executed: the room acts, or → lets the Director act.
-  useEffect(() => { document.documentElement.classList.toggle('on-stage', onStage); setHandSteps(onStage); return () => { document.documentElement.classList.remove('on-stage'); setHandSteps(false); }; }, [onStage, setHandSteps]);
+  // While a scenario is presented (Stage or App view), hand steps (an upload, a decision) are reached without being executed: the room acts, or → lets the Director act.
+  const presentingScenario = !!present && item?.type === 'scenario';
+  useEffect(() => { document.documentElement.classList.toggle('on-stage', onStage); return () => document.documentElement.classList.remove('on-stage'); }, [onStage]);
+  useEffect(() => { setHandSteps(presentingScenario); return () => setHandSteps(false); }, [presentingScenario, setHandSteps]);
   const items = useMemo(() => ITEMS.filter((i) => !persona?.scope?.metricsOnly || i.steward).map((i) => ({ id: i.id, label: i.label, icon: i.icon, group: i.group, onSelect: () => go(i.id), badge: i.id === 'inbox' && session?.inbox ? String(session.inbox) : undefined })), [persona, go, session?.inbox]);
   const screen = SCREENS[route.screen];
   const menuValue = PARENT[route.screen] ?? route.screen;

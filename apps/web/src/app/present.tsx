@@ -21,6 +21,8 @@ import { useApp } from './state';
 import { Btn, Chip, Field, Note, Select } from './ui';
 
 // ------------------------------------------------------------------ model
+/** Shown in the Present bar so the room (and the presenter) can tell which build is running. Bump it with every change to Present mode or the Stage. */
+export const PRESENT_BUILD = '2.3';
 export type CardLayout = 'statement' | 'steps' | 'columns' | 'agenda';
 export type CardChapter = { kind: 'card'; id: string; layout: CardLayout; eyebrow?: string; title: string; lines: string[] };
 export type ScenarioChapter = { kind: 'scenario'; id: string; scenario: string; audience?: string; question?: string };
@@ -315,7 +317,7 @@ export function PresentBar({ user }: { user?: ReactNode }) {
   const speed = director ? Math.round(9000 / (director.autoMs || 9000)) : 1;
   return (
     <div className="glass-chrome flex h-14 items-center gap-3 rounded-xl px-4 shadow-lg">
-      <div className="flex items-center gap-2"><img src="/brand/mark.png" alt="" className="h-7 w-7 dark:hidden" /><img src="/brand/mark-on-dark.png" alt="" className="hidden h-7 w-7 dark:block" /><span className="text-base font-semibold">Jahiz</span><Chip tone="warn">Present</Chip></div>
+      <div className="flex items-center gap-2"><img src="/brand/mark.png" alt="" className="h-7 w-7 dark:hidden" /><img src="/brand/mark-on-dark.png" alt="" className="hidden h-7 w-7 dark:block" /><span className="text-base font-semibold">Jahiz</span><Chip tone="warn" title={`Present mode build ${PRESENT_BUILD}`}>Present · {PRESENT_BUILD}</Chip></div>
       <div className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground">
         <span className="font-mono text-accent">{sc?.scenario}</span> {director ? <>· {director.name} · step {Math.max(0, director.index) + 1} of {director.steps.length}{director.status === 'done' ? ' · complete, → for what you saw' : ''}</> : <>· starting…</>}
         <span className="ms-3 hidden xl:inline">chapter {present.index + 1} of {items.length}</span>
