@@ -11,18 +11,18 @@ export type Session = { persona: PersonaInfo; personas: PersonaInfo[]; clock: { 
 
 export type Changes = { cases: { ref: string; state: string; close_code: string | null; customer_id: string }[]; messages: { id: number; channel: string; status: string; message_type: string; customer_id: string; block_reason: string | null }[]; documents: { id: number; type: string; state: string; recommendation: string | null }[]; proposals: number; tasks: { id: number; kind: string; assignee_persona: string; title: string }[]; trail: number; activity: { id: number; agent: string | null; action: string; result: string; clause: string | null }[]; policyVersion: number | null };
 export type DirectorStep = { id: string; title: string; title_ar: string; narration: string; narration_ar: string; trigger: string; action: { kind: string }; screen: string; screenResolved: string; persona?: string };
-export type Director = { key: string; name: string; steps: DirectorStep[]; index: number; status: 'idle' | 'running' | 'done'; result: string | null; error: string | null; changes: Changes | null; auto: boolean; busy: boolean; clock?: { now: string; today: string }; restored?: string[] };
+export type Director = { key: string; name: string; steps: DirectorStep[]; index: number; status: 'idle' | 'running' | 'done'; result: string | null; error: string | null; changes: Changes | null; auto: boolean; autoMs: number; busy: boolean; clock?: { now: string; today: string }; restored?: string[] };
 
 type Route = { screen: string; param: string | null };
 const parseHash = (): Route => { const h = window.location.hash.replace(/^#\/?/, ''); const i = h.indexOf('/'); return i < 0 ? { screen: h || '', param: null } : { screen: h.slice(0, i), param: decodeURIComponent(h.slice(i + 1)) }; };
 
-export const MENU = ['overview', 'inbox', 'customers', 'employers', 'health', 'cases', 'comms', 'documents', 'policies', 'agents', 'workflows', 'triggers', 'scenarios', 'audit', 'customer-app', 'settings'];
+export const MENU = ['overview', 'inbox', 'customers', 'employers', 'health', 'cases', 'comms', 'documents', 'policies', 'agents', 'workflows', 'triggers', 'scenarios', 'audit', 'customer-app', 'settings', 'present'];
 
 type Ctx = {
   session: Session | null; persona: PersonaInfo | null; switchPersona: (key: string) => void; reloadSession: () => Promise<Session | undefined>;
   route: Route; go: (screen: string, param?: string | null) => void; open: (ref: string) => void;
   caseRef: string | null; openCase: (ref: string | null) => void;
-  director: Director | null; startScenario: (key: string) => Promise<void>; stepScenario: (dir: 1 | -1 | 0) => Promise<void>; stopScenario: () => void; setAuto: (b: boolean) => void;
+  director: Director | null; startScenario: (key: string) => Promise<void>; stepScenario: (dir: 1 | -1 | 0) => Promise<void>; stopScenario: () => void; setAuto: (b: boolean, ms?: number) => void;
   highlight: { cases: Set<string>; messages: Set<number>; documents: Set<number>; tasks: Set<number>; customers: Set<string>; at: number };
   activityOpen: boolean; setActivityOpen: (b: boolean) => void;
 };
@@ -82,7 +82,7 @@ export function AppState({ children }: { children: ReactNode }) {
 
   const startScenario = useCallback(async (key: string) => {
     const r = await post(`/scenarios/${key}/start`);
-    setDirector({ key, name: r.scenario.name, steps: r.scenario.steps, index: -1, status: 'running', result: null, error: null, changes: null, auto: false, busy: false, restored: r.restored ?? [] });
+    setDirector({ key, name: r.scenario.name, steps: r.scenario.steps, index: -1, status: 'running', result: null, error: null, changes: null, auto: false, autoMs: 9000, busy: false, restored: r.restored ?? [] });
     if (r.restored?.length) bump();
     await runIndex(key, 0, r.scenario.steps);
   }, [runIndex]);
@@ -94,12 +94,13 @@ export function AppState({ children }: { children: ReactNode }) {
     await runIndex(director.key, next, director.steps);
   }, [director, runIndex, loadSession, open]);
   const stopScenario = useCallback(() => { post('/scenarios/stop').catch(() => {}); setDirector(null); setCaseRef(null); if (autoTimer.current) window.clearTimeout(autoTimer.current); }, []);
-  const setAuto = useCallback((b: boolean) => setDirector((d) => d && { ...d, auto: b }), []);
+  /** Auto-play on or off, optionally with a new interval (9 s at 1×; the Present bar offers 2× and 4×). */
+  const setAuto = useCallback((b: boolean, ms?: number) => setDirector((d) => d && { ...d, auto: b, autoMs: ms ?? d.autoMs ?? 9000 }), []);
   useEffect(() => {
     if (!director?.auto || director.busy || director.status !== 'running') return;
-    autoTimer.current = window.setTimeout(() => { stepScenario(1); }, 9000);
+    autoTimer.current = window.setTimeout(() => { stepScenario(1); }, director.autoMs ?? 9000);
     return () => { if (autoTimer.current) window.clearTimeout(autoTimer.current); };
-  }, [director?.auto, director?.busy, director?.index, director?.status, stepScenario]);
+  }, [director?.auto, director?.autoMs, director?.busy, director?.index, director?.status, stepScenario]);
 
   const value = useMemo<Ctx>(() => ({ session, persona, switchPersona, reloadSession: loadSession, route, go, open, caseRef, openCase: setCaseRef, director, startScenario, stepScenario, stopScenario, setAuto, highlight, activityOpen, setActivityOpen }),
     [session, persona, switchPersona, loadSession, route, go, open, caseRef, director, startScenario, stepScenario, stopScenario, setAuto, highlight, activityOpen]);

@@ -21,7 +21,7 @@ export function AuditScreen() {
   const { data: log } = useApi<any>(tab === 'integration' ? '/integration-log' : null, { poll: 15000 });
   if (error) return <Empty>{error}</Empty>;
   return (
-    <Screen hero={<Hero eyebrow="Audit trail · append-only" title={<>{num(data?.total)} entries</>} lede="Every transition writes an entry: who (agent, person or system), at what autonomy, under which policy version and clause, with before and after for record writes, and the override reason when a person decided against an agent's recommendation. The integration log shows what Jahiz asked of the core bank, the channels and One Click, as those systems would see it." />} banner={false}>
+    <Screen hero={<Hero eyebrow="Audit trail · append-only" title={<>{num(data?.total)} entries</>} lede="Every transition writes an entry: who, at what autonomy, under which policy version and clause, with before and after for record writes and the reason when a person overrode an agent." />} banner={false}>
       <Tabs value={tab} onChange={setTab} tabs={[{ id: 'trail', label: 'Trail' }, { id: 'integration', label: 'Integration log' }]} />
       {tab === 'trail' ? (
         <>

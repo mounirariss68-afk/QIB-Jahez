@@ -72,16 +72,35 @@ export function Empty({ children }: { children: ReactNode }) { return <div class
 export function Kv({ k, v, mono }: { k: ReactNode; v: ReactNode; mono?: boolean }) { return <div className="min-w-0"><dt className="text-xs text-muted-foreground">{k}</dt><dd className={cn('mt-0.5 break-words text-sm leading-snug', mono && 'font-mono')}>{v}</dd></div>; }
 export function Table({ children, className }: { children: ReactNode; className?: string }) { return <div className={cn('overflow-x-auto scroll-thin', className)}><table className="table-clean">{children}</table></div>; }
 export function Field({ label, children }: { label: ReactNode; children: ReactNode }) { return <label className="field"><span>{label}</span>{children}</label>; }
-export function Screen({ hero, children, banner = true }: { hero: ReactNode; children: ReactNode; banner?: boolean }) {
+/**
+ * A screen: the hero, optional route tabs (sibling screens that share one menu
+ * item), then the content. The "synthetic data" notice now lives once in the
+ * title bar; a screen can still ask for the full banner with banner={true}.
+ */
+export function Screen({ hero, tabs, children, banner = false }: { hero: ReactNode; tabs?: RouteTab[]; children: ReactNode; banner?: boolean }) {
   const { director } = useApp();
   return (
     <div className="space-y-4">
       {hero}
+      {tabs ? <RouteTabs tabs={tabs} /> : null}
       {banner && !director ? <DemoBanner kind="synthetic" title="Synthetic data" className="py-2.5">Every customer, document, employer and figure here is fictional and generated for this demo; every identifier starts with DEMO-. The core bank, the channels and One Click Finance are simulated behind a connector.</DemoBanner> : null}
       <div className="space-y-4">{children}</div>
     </div>
   );
 }
+export type RouteTab = { id: string; label: ReactNode; hint?: string };
+/** Tabs that are routes: the screens merged under one menu item (Overview + Data health, Customers + Employers, Agents + Workflows + Triggers). Deep links and Director steps keep their own routes. */
+export function RouteTabs({ tabs }: { tabs: RouteTab[] }) {
+  const { route, go } = useApp();
+  return (
+    <div className="flex flex-wrap items-center gap-1 rounded-full border border-border/70 bg-card/40 p-1" role="tablist">
+      {tabs.map((t) => <button key={t.id} type="button" role="tab" aria-selected={route.screen === t.id} title={t.hint} onClick={() => go(t.id)} className={cn('rounded-full px-3.5 py-1.5 text-xs font-medium transition', route.screen === t.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>{t.label}</button>)}
+    </div>
+  );
+}
+export const TABS_OVERVIEW: RouteTab[] = [{ id: 'overview', label: 'Readiness', hint: 'How many customers are pre-approvable, and why the rest are not' }, { id: 'health', label: 'Data health', hint: "Raqib's field-level view of the data One Click depends on" }];
+export const TABS_CUSTOMERS: RouteTab[] = [{ id: 'customers', label: 'Customers', hint: 'The synthetic base, with each customer’s eligibility' }, { id: 'employers', label: 'Employers', hint: 'The approved-employer register' }];
+export const TABS_ENGINE: RouteTab[] = [{ id: 'agents', label: 'Agents', hint: 'The ten agents, their remit and autonomy' }, { id: 'workflows', label: 'Workflows', hint: 'The eighteen workflows, step by step' }, { id: 'triggers', label: 'Triggers & clock', hint: 'What starts the agents; fire a trigger or advance the virtual clock' }];
 /** The page hero; while the Director runs it collapses to one band so the content a step points at is in view. */
 export function Hero(props: Parameters<typeof PageHero>[0]) {
   const { director } = useApp();

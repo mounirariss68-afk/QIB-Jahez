@@ -12,6 +12,7 @@ import { CheckCircle2, CircleDashed, Clock, Loader2, XCircle, Hourglass } from '
 import { bump, post, useApi } from '../lib/api';
 import { date, dateTime, rel, title } from '../lib/format';
 import { useApp, useFlash } from './state';
+import { usePresent } from './present';
 import { AgentTag, Btn, Chip, ClassChip, Clause, Empty, Kv, Ref, SegChip, StatusChip, Table, PERSONA_SHORT, ReasonChip } from './ui';
 
 export const KIND: Record<string, TrailKind> = {
@@ -218,9 +219,10 @@ export function CaseDrawer() {
   // While the Director runs, the drawer is non-modal so the Director bar stays usable;
   // clicks on the bar must not dismiss the drawer.
   const directing = !!director;
+  const { present } = usePresent(); // while presenting the drawer starts under the Present bar, so its controls stay visible
   return (
     <Sheet open={!!caseRef} onOpenChange={(o) => !o && openCase(null)} modal={!directing}>
-      <SheetContent side="right" className={`w-full overflow-y-auto sm:max-w-2xl ${directing ? 'pb-48 shadow-2xl' : ''} ${flash}`} onInteractOutside={(e) => { if (directing) e.preventDefault(); }}>
+      <SheetContent side="right" className={`w-full overflow-y-auto sm:max-w-2xl ${directing ? 'pb-48 shadow-2xl' : ''} ${present ? 'present-drawer' : ''} ${flash}`} onInteractOutside={(e) => { if (directing) e.preventDefault(); }}>
         <SheetTitle className="sr-only">Case {caseRef}</SheetTitle>
         {caseRef ? <CaseReader refCode={caseRef} onClose={() => openCase(null)} /> : null}
       </SheetContent>

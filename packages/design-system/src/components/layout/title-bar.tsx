@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import type { ReactNode } from 'react';
 import { tr, trs } from '../../lib/i18n';
 import { PanelLeft, PanelTop, Search, Type } from 'lucide-react';
@@ -145,6 +146,9 @@ export type ContextNavItem = {
   icon?: ReactNode;
   href?: string;
   onSelect?: () => void;
+  /** Optional section name. Consecutive items with the same group sit under one
+   * small heading (vertical menu) or after one divider (horizontal menu). */
+  group?: string;
 };
 
 /**
@@ -236,6 +240,9 @@ export function ContextNav({
     </div>
   );
 
+  // Group headings: rendered once, before the first item of each new group.
+  const grouped = items.map((entry, i) => ({ entry, first: !!entry.group && entry.group !== items[i - 1]?.group }));
+
   if (vertical) {
     return (
       <nav
@@ -246,7 +253,16 @@ export function ContextNav({
         )}
       >
         {home}
-        {items.map(item)}
+        {grouped.map(({ entry, first }) => (
+          <Fragment key={entry.id}>
+            {first ? (
+              <div className={cn('mt-2 px-3 pb-0.5 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70', !showLabels && 'sr-only')}>
+                {trs(entry.group!)}
+              </div>
+            ) : null}
+            {item(entry)}
+          </Fragment>
+        ))}
         <div className="mt-auto flex justify-center pt-2">{controls}</div>
       </nav>
     );
@@ -262,7 +278,12 @@ export function ContextNav({
     >
       <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
         {home}
-        {items.map(item)}
+        {grouped.map(({ entry, first }) => (
+          <Fragment key={entry.id}>
+            {first && entry !== items[0] ? <span aria-hidden="true" className="mx-1 h-5 w-px bg-border/70" /> : null}
+            {item(entry)}
+          </Fragment>
+        ))}
       </div>
       {controls}
     </nav>

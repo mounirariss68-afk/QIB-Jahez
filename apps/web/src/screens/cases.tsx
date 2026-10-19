@@ -18,7 +18,7 @@ export function CasesScreen() {
   const byState = Object.entries(counts.filter((c) => c.state !== 'CLOSED').reduce((m: Record<string, number>, c) => { m[c.state] = (m[c.state] ?? 0) + c.n; return m; }, {})).sort((a, b) => b[1] - a[1]);
   if (error) return <Empty>{error}</Empty>;
   return (
-    <Screen hero={<Hero eyebrow="Cases · the workspace" title={<>{num(openN)} open cases in your scope</>} lede="One case per customer, classed A/B/C/D, with its workflow, attempts, next action and re-check date. States come from the domain's state machine; the drawer shows the runs, the steps, the documents, the messages and the trail." />}>
+    <Screen hero={<Hero eyebrow="Cases · the workspace" title={<>{num(openN)} open cases in your scope</>} lede="One case per customer, classed A/B/C/D, with its workflow, attempts, next action and re-check date; open one for the runs, the steps, the documents, the messages and the trail." />}>
       <StatRow>{byState.slice(0, 4).map(([s, n]) => <StatTile key={s} label={title(s)} value={num(n)} />)}</StatRow>
       <div className="flex flex-wrap items-center gap-2">
         <input className="input" placeholder="Case ref, customer, DEMO id" value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} />

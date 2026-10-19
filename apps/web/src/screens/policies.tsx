@@ -32,7 +32,7 @@ export function PoliciesScreen() {
     catch (e: any) { setMsg(e.message); } finally { setBusy(false); }
   };
   return (
-    <Screen hero={<Hero eyebrow={`Policies · version ${data.version} active`} title="Everything an agent may do is a setting here" lede="Ten policy domains plus segments, channels, reference lists and the data generator. Parameters that differ by segment are stored per segment; the rest are global. A change is proposed, previewed for its effect, approved by the domain's approver, versioned, and stamped on every action after it. Nothing about QIB's rules is in the code." actions={<Btn onClick={() => go('audit', 'act=VERSION')}>Version history in the trail</Btn>} />} banner={false}>
+    <Screen hero={<Hero eyebrow={`Policies · version ${data.version} active`} title="Everything an agent may do is a setting here" lede="Every parameter of QIB's rules lives here, per segment where it differs; a change is proposed, previewed, approved by the domain's approver and versioned, and nothing about the rules is in the code." actions={<Btn onClick={() => go('audit', 'act=VERSION')}>Version history in the trail</Btn>} />} banner={false}>
       {pendingRun ? <Note tone="warn">A policy change waits on you: <strong>{pendingRun.title}</strong>. <button type="button" className="text-primary underline" onClick={() => go('inbox')}>Decide it in the Inbox</button>.</Note> : null}
       {msg ? <Note>{msg}</Note> : null}
       <div className="flex flex-wrap gap-1">{data.domains.map((d: any) => <button key={d.id} type="button" onClick={() => { setDomain(d.id); setTab('params'); }} className={`mono-chip ${domain === d.id ? 'is-primary' : ''}`} title={d.description}>{d.id} · {d.name}</button>)}</div>

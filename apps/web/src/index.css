@@ -43,3 +43,16 @@ select.input { padding-inline-end: 28px; }
 .phone-bubble { border-radius: 14px; padding: 10px 12px; font-size: 12.5px; line-height: 1.45; }
 .mail-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 10px 12px; border-bottom: 1px solid color-mix(in oklab, var(--color-border) 60%, transparent); cursor: pointer; }
 .mail-row:hover { background: color-mix(in oklab, var(--color-primary) 6%, transparent); }
+
+/* Present mode: the demo without PowerPoint. Cards fade in; the whole app is drawn a little larger for the room. */
+@keyframes present-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.present-enter { animation: present-in .45s var(--ease, cubic-bezier(0.22, 1, 0.36, 1)) both; }
+html.presenting #root { zoom: 1.08; }
+html.presenting.on-stage #root { zoom: 1; } /* the Stage is dense and sized to the viewport; it is not enlarged */
+.present-overlay .eyebrow { color: hsl(var(--muted-foreground)); }
+.present-drawer { top: 72px !important; bottom: 0 !important; height: auto !important; border-top-left-radius: 16px; }
+
+/* The Stage (Present mode): three panes that fit the screen and scroll on their own; the phone sized to its pane. */
+.stage-pane-body { max-height: calc(100vh - 210px); }
+.stage-phone .customer-phone-wrap { padding: 0; }
+.stage-phone .customer-phone { --ph: calc(100vh - 290px); height: var(--ph); min-height: 520px; width: calc(var(--ph) * 0.4774); aspect-ratio: auto; border-radius: calc(var(--ph) * 0.0597); } /* iPhone 18 Pro Max: 78 × 163.4 mm body, 19.5:9 screen */

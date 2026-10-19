@@ -16,6 +16,7 @@ import { actions } from './api/actions.js';
 import { scenarios } from './api/scenarios.js';
 import { assistant } from './assistant/index.js';
 import { mobile } from './api/mobile.js';
+import { present } from './api/present.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(here, '../../web/dist');
@@ -27,7 +28,7 @@ app.get('/api/healthz', async (_req, res) => { const ok = await pool.query('SELE
 let seeding: Promise<void> | null = null;
 app.use('/api', (req, res, next) => { if (seeding && req.path !== '/healthz') return res.status(503).json({ error: 'Building the synthetic world — try again in a minute' }); next(); });
 app.use('/api/mobile', mobile);
-app.use('/api', data, actions, scenarios, assistant);
+app.use('/api', data, actions, scenarios, present, assistant);
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found' }));
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => { console.error('[api]', err); res.status(err?.status ?? 500).json({ error: err?.message ?? 'Server error' }); });
 

@@ -7,7 +7,7 @@ import { bump, post, useApi } from '../lib/api';
 import { dateTime, num, rel, title } from '../lib/format';
 import { useApp } from '../app/state';
 import { TrailList, Steps } from '../app/case';
-import { AUTONOMY, Btn, Chip, Empty, Hero, Note, Screen, StatusChip, Table, PERSONA_SHORT, AgentTag } from '../app/ui';
+import { AUTONOMY, Btn, Chip, Empty, Hero, Note, Screen, StatusChip, Table, PERSONA_SHORT, AgentTag, TABS_ENGINE } from '../app/ui';
 
 export function AgentsScreen() {
   const { route, go } = useApp();
@@ -17,7 +17,7 @@ export function AgentsScreen() {
   if (error) return <Empty>{error}</Empty>;
   const agents = data ?? [];
   return (
-    <Screen hero={<Hero eyebrow="Agents · the team" title="Ten named colleagues, each with a remit, an autonomy rung and an accountable owner" lede="A0 observe · A1 recommend · A2 acts on approval · A3 acts and reports · A4 autonomous. None runs at A4. Everything that decides — eligibility, classes, caps, windows, suppression, state — is deterministic; Claude is used for reading documents, classifying free text, drafting for a person to review, and Dalil's conversation." />} banner={false}>
+    <Screen hero={<Hero eyebrow="Agents & workflows · the team" title="Ten agents, each with a remit, an autonomy rung and an accountable owner" lede="A1 recommends, A2 acts on approval, A3 acts and reports, none runs autonomously; everything that decides is deterministic, and Claude only reads, classifies, drafts and answers." />} tabs={TABS_ENGINE}>
       {sel ? (
         <PageColumns aside={<Panel icon={<Bot size={16} />} title="Live stats (from the trail)"><ul className="space-y-1 text-[13px]">{sel.stats.sort((a: any, b: any) => b.total - a.total).map((s: any) => <li key={s.act} className="flex items-center justify-between"><span>{title(s.act)}</span><span className="font-mono text-[12px]">{num(s.today)} today · {num(s.total)} all</span></li>)}{!sel.stats.length ? <li className="text-muted-foreground">No activity yet.</li> : null}</ul><dl className="mt-3 grid grid-cols-2 gap-3 text-[12px]"><div><dt className="text-muted-foreground">Reads</dt><dd>{sel.reads.join(', ')}</dd></div><div><dt className="text-muted-foreground">Writes</dt><dd>{sel.writes.length ? sel.writes.join(', ') : 'nothing'}</dd></div><div><dt className="text-muted-foreground">Who decides</dt><dd>{sel.decides}</dd></div><div><dt className="text-muted-foreground">Owner</dt><dd>{PERSONA_SHORT[sel.owner]}</dd></div><div><dt className="text-muted-foreground">Uses Claude</dt><dd>{sel.claude === 'yes' ? 'yes (with an Offline fallback)' : sel.claude === 'drafts' ? 'only to draft text a person reviews' : 'no'}</dd></div>{sel.autonomyBySegment ? <div><dt className="text-muted-foreground">By segment</dt><dd>{Object.entries(sel.autonomyBySegment).map(([s, a]) => `${s} ${a}`).join(' · ')}</dd></div> : null}</dl></Panel>}>
           <Panel title="Profile" action={<Btn small onClick={() => go('agents')}>All agents</Btn>}>
@@ -42,7 +42,7 @@ export function WorkflowsScreen() {
   const { openCase } = useApp();
   if (error) return <Empty>{error}</Empty>;
   return (
-    <Screen hero={<Hero eyebrow="Workflows · what is automated, and exactly how" title="Eighteen workflows, each step with its actor, inputs, outputs and decision" lede="AGENT steps execute at once; a HUMAN step parks the case in one persona's inbox; SYSTEM steps are the only writes to the bank's record, and they run only after every human step before them has approved. A step that waits parks the run until the customer's reply, a payment or a deadline." />} banner={false}>
+    <Screen hero={<Hero eyebrow="Agents & workflows · what is automated, and exactly how" title="Eighteen workflows, each step with its actor, inputs, outputs and decision" lede="Agent steps run at once, a human step parks the case in one person's inbox, and a system step writes to the bank's record only after every human step before it has approved." />} tabs={TABS_ENGINE}>
       {sel ? (
         <PageColumns aside={<Panel title="Runs" action={<Btn small onClick={() => go('workflows')}>Catalogue</Btn>}><ul className="space-y-1 text-[12px]">{sel.runs.map((r: any) => <li key={r.status} className="flex items-center justify-between"><StatusChip status={r.status} /><span className="font-mono">{num(r.n)}</span></li>)}</ul><p className="mt-2 text-[12px] text-muted-foreground">Trigger: {sel.trigger}</p><p className="text-[12px] text-muted-foreground">Decision by: {sel.decision_by}</p><p className="mt-1 flex flex-wrap gap-1">{sel.agents.map((a: string) => <AgentTag key={a} id={a} showChip={false} size={16} />)}</p></Panel>}>
           <Panel icon={<GitBranch size={16} />} title={`${sel.id} · ${sel.name}`} action={<Chip>{sel.coverage}</Chip>}>
@@ -66,7 +66,7 @@ export function TriggersScreen() {
   const fire = async (key: string, body: any = {}) => { setBusy(key); setMsg(''); try { const r = await post(`/triggers/${key}/fire`, body); setMsg(`${key}: ${JSON.stringify(r.result).slice(0, 220)} · now ${r.today}`); bump(); reload(); reloadSession(); } catch (e: any) { setMsg(e.message); } finally { setBusy(''); } };
   if (error) return <Empty>{error}</Empty>;
   return (
-    <Screen hero={<Hero eyebrow="Triggers · what starts the agents" title="Every trigger, its last firing, and a fire-now button" lede="Scheduled triggers run on the virtual clock; event triggers fire when a customer, a person or a policy change acts. Advance the clock by a day, a week or thirty days to see the reminders, the deadlines, the T+90 restriction proposals and the cooling periods fall out — a month in a minute." />} banner={false}>
+    <Screen hero={<Hero eyebrow="Agents & workflows · what starts the agents" title="Every trigger, its last firing, a fire-now button and the virtual clock" lede="Scheduled triggers run on the virtual clock and event triggers fire when a customer, a person or a policy change acts; advance the clock to see reminders, deadlines and cooling periods fall out, a month in a minute." />} tabs={TABS_ENGINE}>
       {msg ? <Note>{msg}</Note> : null}
       <StatRow><StatTile label="Virtual clock" value={data?.clock.today ?? '—'} state={<Chip>Doha</Chip>} /><StatTile label="Messages due now" value={num(data?.pending.due)} /><StatTile label="Deadlines passed" value={num(data?.pending.deadlines)} /><StatTile label="Re-checks due" value={num(data?.pending.rechecks)} /></StatRow>
       <Panel icon={<CalendarClock size={16} />} title="Advance the clock" action={<span className="text-[12px] text-muted-foreground">next scheduled message {data?.pending.nextScheduled ? dateTime(data.pending.nextScheduled) : '—'}</span>}>
@@ -87,7 +87,7 @@ export function ScenariosScreen() {
   useEffect(() => { reload(); }, [director?.status, reload]);
   if (error) return <Empty>{error}</Empty>;
   return (
-    <Screen hero={<Hero eyebrow="Scenarios · the demo's remote control" title="Six scripted productions through the real engine" lede="Each step names its trigger, runs the engine, switches the screen (and the persona), opens the record and highlights what changed. Nothing is faked: a step that 'decides' calls the same decide() a click calls, stamped '(decided by the scenario)' in the trail. Play, pause, step, go back; or reset the whole world." />} banner={false}>
+    <Screen hero={<Hero eyebrow="Scenarios · the demo's remote control" title="Six scripted productions through the real engine" lede="Each step names its trigger, runs the real engine, switches the screen and the persona, opens the record and highlights what changed; nothing is pre-recorded." actions={<Btn kind="primary" onClick={() => go('present')} title="Present mode: the demo without PowerPoint">Present</Btn>} />}>
       {msg ? <Note>{msg}</Note> : null}
       <Panel icon={<Play size={16} />} title="Scenarios">
         <ScenarioRunner onReset={async () => { if (!confirm('Rebuild the synthetic world from scratch? This replays sixty days of history and takes about two minutes.')) return; setResetting(true); setMsg('Rebuilding the world…'); try { await post('/control/reset'); setMsg('The world was rebuilt and the clock set to today 09:00 Doha.'); bump(); } catch (e: any) { setMsg(e.message); } finally { setResetting(false); } }}>

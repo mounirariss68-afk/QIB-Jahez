@@ -22,7 +22,7 @@ export function CommsScreen() {
   const { data, error } = useApi<any>(tab !== 'inbound' && tab !== 'templates' && tab !== 'mailbox' ? `/comms?${qs}` : null, { poll: 12000 });
   const stats = useMemo(() => Object.fromEntries(((data?.stats ?? []) as any[]).map((s) => [s.status, s.n])), [data]);
   return (
-    <Screen hero={<Hero eyebrow="Communications" title="Everything said to and by customers" lede="Outbound messages are scheduled inside the policy window, checked by Hami when due, and delivered into the customer's phone or mailbox (simulated adapters). Blocked messages carry the clause. Every row shows the policy version it was planned under." />}>
+    <Screen hero={<Hero eyebrow="Communications" title="Everything said to and by customers" lede="Outbound messages are scheduled inside the policy window, checked by Hami when due and delivered to the customer's phone or mailbox; a blocked message carries the clause." />}>
       <StatRow><StatTile label="Sent" value={num(stats.SENT ?? 0)} /><StatTile label="Scheduled" value={num(stats.SCHEDULED ?? 0)} /><StatTile label="Blocked by Hami" value={num(stats.BLOCKED ?? 0)} /><StatTile label="Cancelled" value={num(stats.CANCELLED ?? 0)} /></StatRow>
       <div className="flex flex-wrap items-center gap-2">
         <Tabs value={tab} onChange={setTab} tabs={[{ id: 'all', label: 'All outbound' }, { id: 'scheduled', label: 'Scheduled' }, { id: 'blocked', label: 'Blocked' }, { id: 'sent', label: 'Sent' }, { id: 'inbound', label: 'Inbound' }, { id: 'mailbox', label: 'Mailbox simulator' }, { id: 'templates', label: 'Templates' }]} />

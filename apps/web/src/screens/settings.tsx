@@ -1,11 +1,12 @@
 /** Settings — personas and authority, synthetic data, connectors, AI. */
 import { useState } from 'react';
 import { Panel, PageColumns } from '@cognirise/atelier/layout';
-import { Database, Loader2, Network, Sparkles, Users } from 'lucide-react';
+import { Database, Loader2, Network, Presentation, Sparkles, Users } from 'lucide-react';
 import { bump, post, useApi } from '../lib/api';
 import { num } from '../lib/format';
 import { useApp } from '../app/state';
 import { Btn, Chip, Empty, Hero, Note, Screen, StatusChip, Table } from '../app/ui';
+import { StorylineEditor } from '../app/present';
 
 const MATRIX: [string, string][] = [
   ['SEND_REQUEST / SEND_REMINDER', 'Head · Ops (Mass/HV) · Supervisor · RM (own book)'], ['RESCHEDULE', 'Head · Ops · Supervisor · RM · Collections (class D)'], ['PAUSE / RESUME', 'Head · Ops · Supervisor · Compliance · RM · Collections (D)'], ['ESCALATE_TO_RM', 'Head · Ops · Supervisor'],
@@ -22,7 +23,7 @@ export function SettingsScreen() {
   if (error) return <Empty>{error}</Empty>;
   if (!data) return <p className="p-6 text-sm text-muted-foreground">Loading…</p>;
   return (
-    <Screen hero={<Hero eyebrow="Settings" title="Personas, data, connectors, AI" lede="Switching persona changes the inbox, the scope, what is approvable, and what Dalil will do: the authority model is on the server. The data generator reads the DATA parameters, so changing the distributions and resetting produces a base that matches QIB's." />} banner={false}>
+    <Screen hero={<Hero eyebrow="Settings" title="Personas, data, connectors, AI, the demo" lede="Switching persona changes the inbox, the scope, what is approvable and what Dalil will do; the data generator reads the DATA parameters, so a reset produces a base that matches QIB's." />} banner={false}>
       {msg ? <Note>{msg}</Note> : null}
       <PageColumns aside={<>
         <Panel icon={<Sparkles size={16} />} title="AI"><p className="flex items-center gap-2 text-sm"><StatusChip status={data.ai.mode} /><span>{data.ai.mode === 'claude' ? `Claude via ${data.ai.via}, model ${data.ai.model}` : 'Replit AI Integrations is not connected'}</span></p><p className="mt-2 text-[12px] text-muted-foreground">Five agents use Claude through Replit's Anthropic connection, for four kinds of work: Dalil's conversation, Mustaqbil's classification of free text, Fahis's reading of documents, and the drafts Munadi and Muwathiq prepare for a person. Everything that decides is deterministic. No API key is stored in the app; without the connection every Claude step has an Offline fallback and says so.</p></Panel>
@@ -32,6 +33,10 @@ export function SettingsScreen() {
           <Table><thead><tr><th>Persona</th><th>Role</th><th>Sees</th><th>Owns</th><th></th></tr></thead><tbody>{data.personas.map((p: any) => <tr key={p.key}><td><span className="flex items-center gap-2"><span className={`flex h-7 w-7 items-center justify-center rounded-full border text-[11px] font-semibold ${persona?.key === p.key ? 'border-primary bg-primary text-primary-foreground' : 'border-border'}`}>{p.initials}</span><span className="text-sm">{p.name} <span className="ar text-muted-foreground">{p.name_ar}</span></span></span></td><td className="text-[12px]">{p.role}</td><td className="text-[12px] text-muted-foreground">{p.sees}</td><td className="text-[12px]">{p.owns.join(', ') || '—'}</td><td><Btn small onClick={() => switchPersona(p.key)} disabled={persona?.key === p.key}>Act as</Btn></td></tr>)}</tbody></Table>
           <p className="eyebrow mt-4">Authority matrix</p>
           <Table className="mt-1"><thead><tr><th>Action</th><th>Who may</th></tr></thead><tbody>{MATRIX.map(([a, w]) => <tr key={a}><td className="font-mono text-[11px]">{a}</td><td className="text-[12px]">{w}</td></tr>)}</tbody></Table>
+        </Panel>
+        <Panel icon={<Presentation size={16} />} title="Demo · Present mode storylines">
+          <p className="mb-3 text-[13px] text-muted-foreground">Present mode replaces the slides: card chapters are drawn by the app with live numbers, scenario chapters hand the room to the Director with the menu hidden, and each scenario is followed by a card with what it did, counted from the trail. Start it from the Present button in the title bar; → and ← move, F is full screen, Esc leaves.</p>
+          <StorylineEditor />
         </Panel>
         <Panel icon={<Database size={16} />} title="Synthetic data (DATA parameters) · reset rebuilds the world from these">
           <Table><thead><tr><th>Parameter</th><th>Value</th><th>Basis</th></tr></thead><tbody>{data.data.map((p: any) => <tr key={p.key}><td><span className="block text-sm">{p.label}</span><span className="font-mono text-[11px] text-muted-foreground">{p.key}{p.unit ? ` · ${p.unit}` : ''}</span></td><td><input className="input h-8 w-64 font-mono text-[12px]" value={edits[p.key] ?? (Array.isArray(p.value) ? p.value.join(', ') : String(p.value))} onChange={(e) => setEdits({ ...edits, [p.key]: e.target.value })} /></td><td className="text-[11px] text-muted-foreground">{p.basis}</td></tr>)}</tbody></Table>

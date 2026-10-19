@@ -29,7 +29,8 @@ export function CustomerAppScreen() {
   );
 }
 
-export function Phone({ id }: { id: string }) {
+/** The customer's phone. `bare` renders the phone alone (the Stage docks it in its own pane); otherwise the explanatory panels sit beside it. */
+export function Phone({ id, bare }: { id: string; bare?: boolean }) {
   const { data: d, error, reload } = useApi<any>(`/customer/${id}/phone`, { poll: 8000 });
   const { openCase, go } = useApp();
   const [tab, setTab] = useState<'home' | 'messages' | 'upload'>('home');
@@ -83,21 +84,8 @@ export function Phone({ id }: { id: string }) {
     if (await submit(`/customer/${id}/reply`, { text: reply })) setReply('');
   };
 
-  return (
-    <PageColumns aside={<>
-      <Panel icon={<Smartphone size={16} />} title="This customer">
-        <p className="text-sm font-medium">{c.nameEn} <span className="ar text-muted-foreground">{c.nameAr}</span></p>
-        <p className="flex flex-wrap items-center gap-1 text-[12px] text-muted-foreground"><Ref>{c.id}</Ref><Chip>{title(c.segment)}</Chip>{c.app ? <Chip tone="success">app registered</Chip> : <Chip tone="warn">no app — e-mail and SMS only</Chip>}{c.marketing ? <Chip>marketing consent</Chip> : <Chip tone="warn">no marketing consent</Chip>}{c.dnc ? <Chip tone="danger">do-not-contact</Chip> : null}</p>
-        <dl className="mt-2 grid grid-cols-2 gap-2 text-[12px]"><div><dt className="text-muted-foreground">QID expires</dt><dd>{date(c.qidExpiry)}</dd></div>{!c.isQatari ? <div><dt className="text-muted-foreground">Passport expires</dt><dd>{date(c.passportExpiry)}</dd></div> : null}<div><dt className="text-muted-foreground">Current account</dt><dd>{c.hasCurrentAccount ? 'yes' : 'no'}</dd></div><div><dt className="text-muted-foreground">Last check</dt><dd>{d.eligibility ? (d.eligibility.eligible ? `eligible ${qar(d.eligibility.amount)}` : `not eligible: ${d.eligibility.reason_codes.join(', ')}`) : '—'}</dd></div></dl>
-        {kase ? <p className="mt-2 text-[12px]">Open case <button type="button" className="font-mono text-primary" onClick={() => openCase(kase.ref)}>{kase.ref}</button> · <StatusChip status={kase.state} /> · {kase.attempts}/{kase.max_attempts} notices</p> : <p className="mt-2 text-[12px] text-muted-foreground">No open case.</p>}
-        <p className="mt-2 flex flex-wrap gap-2 text-[12px]"><button type="button" className="text-primary" onClick={() => go('customers', c.id)}>Customer 360</button><button type="button" className="text-primary" onClick={() => go('comms', `mailbox=${c.id}`)}>Mailbox</button><button type="button" className="text-primary" onClick={() => go('comms', `customer=${c.id}`)}>All messages</button></p>
-      </Panel>
-      <Panel icon={<Upload size={16} />} title="What happens when the customer uploads">
-        <ol className="list-decimal space-y-1 ps-4 text-[12px]"><li>The upload is an app event: <span className="font-mono">POST /api/customer/{'{id}'}/upload</span>, assurance "app upload" (an RM-collected scan is "RM scan"; e-mail is lowest).</li><li>Mustaqbil matches it to the open case and classifies it (document).</li><li>Fahis extracts the fields — with Claude (vision for a real image, text for a specimen) or Offline from the specimen's data — verifies number, name, expiry, MRZ, and proposes the update with its confidence.</li><li>The checker approves or rejects in the Inbox; Muhaddith writes; Muahil re-qualifies; the One Click offer lands here.</li></ol>
-        {msg ? <Note>{msg}</Note> : null}
-      </Panel>
-    </>}>
-      <div className="customer-phone-wrap">
+  const phone = (
+    <div className="customer-phone-wrap">
         <div className="customer-phone" dir={ar ? 'rtl' : 'ltr'}>
           <div className="customer-status"><span>9:41</span><span className="customer-status-icons">● &nbsp; ▮▮▮</span></div>
           <header className="customer-header">
@@ -183,6 +171,19 @@ export function Phone({ id }: { id: string }) {
         </div>
         <p className="customer-delivery-caption">Last delivery {d.inbox[0] ? dateTime(d.inbox[0].at) : '—'} · {d.inbox.length} items on this phone</p>
       </div>
-    </PageColumns>
   );
+  if (bare) return phone;
+  return <PageColumns aside={<>
+      <Panel icon={<Smartphone size={16} />} title="This customer">
+        <p className="text-sm font-medium">{c.nameEn} <span className="ar text-muted-foreground">{c.nameAr}</span></p>
+        <p className="flex flex-wrap items-center gap-1 text-[12px] text-muted-foreground"><Ref>{c.id}</Ref><Chip>{title(c.segment)}</Chip>{c.app ? <Chip tone="success">app registered</Chip> : <Chip tone="warn">no app — e-mail and SMS only</Chip>}{c.marketing ? <Chip>marketing consent</Chip> : <Chip tone="warn">no marketing consent</Chip>}{c.dnc ? <Chip tone="danger">do-not-contact</Chip> : null}</p>
+        <dl className="mt-2 grid grid-cols-2 gap-2 text-[12px]"><div><dt className="text-muted-foreground">QID expires</dt><dd>{date(c.qidExpiry)}</dd></div>{!c.isQatari ? <div><dt className="text-muted-foreground">Passport expires</dt><dd>{date(c.passportExpiry)}</dd></div> : null}<div><dt className="text-muted-foreground">Current account</dt><dd>{c.hasCurrentAccount ? 'yes' : 'no'}</dd></div><div><dt className="text-muted-foreground">Last check</dt><dd>{d.eligibility ? (d.eligibility.eligible ? `eligible ${qar(d.eligibility.amount)}` : `not eligible: ${d.eligibility.reason_codes.join(', ')}`) : '—'}</dd></div></dl>
+        {kase ? <p className="mt-2 text-[12px]">Open case <button type="button" className="font-mono text-primary" onClick={() => openCase(kase.ref)}>{kase.ref}</button> · <StatusChip status={kase.state} /> · {kase.attempts}/{kase.max_attempts} notices</p> : <p className="mt-2 text-[12px] text-muted-foreground">No open case.</p>}
+        <p className="mt-2 flex flex-wrap gap-2 text-[12px]"><button type="button" className="text-primary" onClick={() => go('customers', c.id)}>Customer 360</button><button type="button" className="text-primary" onClick={() => go('comms', `mailbox=${c.id}`)}>Mailbox</button><button type="button" className="text-primary" onClick={() => go('comms', `customer=${c.id}`)}>All messages</button></p>
+      </Panel>
+      <Panel icon={<Upload size={16} />} title="What happens when the customer uploads">
+        <ol className="list-decimal space-y-1 ps-4 text-[12px]"><li>The upload is an app event: <span className="font-mono">POST /api/customer/{'{id}'}/upload</span>, assurance "app upload" (an RM-collected scan is "RM scan"; e-mail is lowest).</li><li>Mustaqbil matches it to the open case and classifies it (document).</li><li>Fahis extracts the fields — with Claude (vision for a real image, text for a specimen) or Offline from the specimen's data — verifies number, name, expiry, MRZ, and proposes the update with its confidence.</li><li>The checker approves or rejects in the Inbox; Muhaddith writes; Muahil re-qualifies; the One Click offer lands here.</li></ol>
+        {msg ? <Note>{msg}</Note> : null}
+      </Panel>
+    </>}>{phone}</PageColumns>;
 }

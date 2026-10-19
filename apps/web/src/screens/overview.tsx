@@ -5,7 +5,7 @@ import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Too
 import { useApi } from '../lib/api';
 import { num, pct, qarShort, rel, title, dateShort } from '../lib/format';
 import { useApp } from '../app/state';
-import { AgentTag, Chip, ClassChip, Clause, Empty, Hero, Screen, SEG, PERSONA_SHORT, CLASS_LABEL, Table, Ref } from '../app/ui';
+import { AgentTag, Chip, ClassChip, Clause, Empty, Hero, Screen, SEG, PERSONA_SHORT, CLASS_LABEL, Table, Ref, TABS_OVERVIEW } from '../app/ui';
 
 const C = { primary: 'var(--color-primary)', accent: 'var(--color-accent)', muted: 'var(--color-muted-foreground)' };
 
@@ -23,9 +23,9 @@ export function Overview() {
   const cured = funnel.filter((f) => f.close_code === 'CURED').reduce((s, f) => s + f.n, 0);
   const curable = h.curable.classA + h.curable.classB;
   return (
-    <Screen hero={<Hero eyebrow="One Click Finance · pre-approval readiness" title={<>{pct(h.eligibleRate)} of {num(h.customers)} customers are pre-approvable today</>} lede={<>{num(h.fallouts)} fall out; {num(curable)} of them ({pct((100 * curable) / Math.max(1, h.fallouts), 0)}) are curable — {num(h.curable.classA)} by asking the customer, {num(h.curable.classB)} by a decision inside the bank. Raqib scans nightly; the agents act inside policy v{session?.policyVersion}; people decide every record change.</>}
+    <Screen hero={<Hero eyebrow="One Click Finance · pre-approval readiness" title={<>{pct(h.eligibleRate)} of {num(h.customers)} customers are pre-approvable today</>} lede={<>{num(h.fallouts)} fall out; {num(curable)} of them ({pct((100 * curable) / Math.max(1, h.fallouts), 0)}) are curable — {num(h.curable.classA)} by asking the customer, {num(h.curable.classB)} by a decision inside the bank.</>}
       actions={<div className="flex flex-wrap gap-2"><button type="button" className="pill-btn pill-btn-primary" onClick={() => go('scenarios')}>Run a scenario</button><button type="button" className="pill-btn pill-btn-ghost" onClick={() => go('inbox')}>What is waiting on me{session?.inbox ? ` (${session.inbox})` : ''}</button></div>}
-      feature={<div className="rounded-2xl border border-border/60 bg-card/60 p-4 text-sm"><p className="eyebrow">Last scan</p><p className="mt-1 text-2xl font-extrabold tabular-nums">{num(last?.eligible_count)} <span className="text-base font-medium text-muted-foreground">eligible</span></p><p className="text-[12px] text-muted-foreground">{last ? `${last.trigger} · ${dateShort(last.as_of)} · ${delta >= 0 ? '+' : ''}${delta} vs the previous scan` : '—'}</p></div>} />}>
+      feature={<div className="rounded-2xl border border-border/60 bg-card/60 p-4 text-sm"><p className="eyebrow">Last scan</p><p className="mt-1 text-2xl font-extrabold tabular-nums">{num(last?.eligible_count)} <span className="text-base font-medium text-muted-foreground">eligible</span></p><p className="text-[12px] text-muted-foreground">{last ? `${last.trigger} · ${dateShort(last.as_of)} · ${delta >= 0 ? '+' : ''}${delta} vs the previous scan` : '—'}</p></div>} />} tabs={TABS_OVERVIEW}>
       <StatRow>
         <StatTile label="Eligible rate" value={pct(h.eligibleRate)} state={<Chip>target 35%</Chip>} trend={{ direction: delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat', label: `${delta >= 0 ? '+' : ''}${delta} since the previous scan`, sentiment: delta > 0 ? 'good' : delta < 0 ? 'bad' : 'neutral' }} />
         <StatTile label="Open cases" value={num(openCases)} trend={{ direction: 'flat', label: `${num(cured)} cured so far · ${num(data.today.cured)} today`, sentiment: 'good' }} />

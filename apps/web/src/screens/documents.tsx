@@ -20,7 +20,7 @@ function Queue() {
   if (error) return <Empty>{error}</Empty>;
   const rows = data ?? [];
   return (
-    <Screen hero={<Hero eyebrow="Documents · Fahis's queue" title={<>{num(rows.filter((d) => ['PROPOSED', 'REVIEW', 'REJECT_RECOMMENDED', 'RECEIVED'].includes(d.state)).length)} documents wait for a checker</>} lede="Every document is a specimen rendered from the synthetic record (or a real image uploaded in the customer app). Fahis extracts the fields (Claude, or Offline from the specimen's own data), verifies them against the record, scores confidence and assurance, and proposes the update. A person decides every one." />}>
+    <Screen hero={<Hero eyebrow="Documents · Fahis's queue" title={<>{num(rows.filter((d) => ['PROPOSED', 'REVIEW', 'REJECT_RECOMMENDED', 'RECEIVED'].includes(d.state)).length)} documents wait for a checker</>} lede="Fahis reads each document, checks the fields against the record, scores confidence and proposes the update; a person decides every one." />}>
       <Tabs value={tab} onChange={setTab} tabs={[{ id: 'queue', label: 'Waiting for a checker' }, { id: 'APPLIED', label: 'Applied' }, { id: 'REJECTED', label: 'Rejected' }, { id: 'all', label: 'All' }]} />
       <Panel icon={<FileText size={16} />} title={`${num(rows.length)} document(s)`}>
         <Table><thead><tr><th>Document</th><th>Customer</th><th>Type</th><th>Received</th><th>Assurance</th><th>Fahis</th><th>Confidence</th><th>State</th><th>Waits on</th></tr></thead>

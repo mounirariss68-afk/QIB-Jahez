@@ -5,7 +5,7 @@ import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis
 import { useApi } from '../lib/api';
 import { num, pct } from '../lib/format';
 import { useApp } from '../app/state';
-import { Bar as Meter, Chip, ClassChip, Empty, Hero, Screen, SEG, Table, CLASS_LABEL } from '../app/ui';
+import { Bar as Meter, Chip, ClassChip, Empty, Hero, Screen, SEG, Table, CLASS_LABEL, TABS_OVERVIEW } from '../app/ui';
 
 export function HealthScreen() {
   const { data: h, error } = useApi<any>('/health', { poll: 20000 });
@@ -16,7 +16,7 @@ export function HealthScreen() {
   const defs = Object.fromEntries((reasons?.reasons ?? []).map((r: any) => [r.code, r]));
   const can = !persona?.scope?.metricsOnly;
   return (
-    <Screen hero={<Hero eyebrow="Data health · Raqib's view" title={<>{pct(h.eligibleRate)} pre-approvable · {num(h.fallouts)} fall-outs across {num(h.byReason.filter((r: any) => r.incidences > 0).length)} reasons</>} lede={<>Field-level health of the data One Click depends on, as of {h.asOf}. Every figure is derived by the same module the scan uses; no screen computes anything itself.</>} actions={<button type="button" className="pill-btn pill-btn-ghost" onClick={() => go('triggers')}>Run the scan now</button>} />}>
+    <Screen hero={<Hero eyebrow="Data health · Raqib's view" title={<>{pct(h.eligibleRate)} pre-approvable · {num(h.fallouts)} fall-outs across {num(h.byReason.filter((r: any) => r.incidences > 0).length)} reasons</>} lede={<>Field-level health of the data One Click depends on, as of {h.asOf}, computed by the same module the scan uses.</>} actions={<button type="button" className="pill-btn pill-btn-ghost" onClick={() => go('triggers')}>Run the scan now</button>} />} tabs={TABS_OVERVIEW}>
       <StatRow>
         <StatTile label="QID expiring ≤ 90 days" value={num(h.expiriesAhead.qid90)} state={<Chip>{num(h.expiriesAhead.qid30)} ≤ 30</Chip>} trend={{ direction: 'flat', label: 'pre-expiry watch opens WF-02', sentiment: 'neutral' }} />
         <StatTile label="Passport expiring ≤ 90 days" value={num(h.expiriesAhead.passport90)} state={<Chip>{num(h.expiriesAhead.passport30)} ≤ 30</Chip>} trend={{ direction: 'flat', label: 'residents · WF-03', sentiment: 'neutral' }} />
