@@ -99,10 +99,11 @@ export default function App() {
 function Shell() {
   const rail = useChatRail(true);
   const chrome = useAppChrome();
-  const { persona, route, go, session, setActivityOpen, director } = useApp();
+  const { persona, route, go, session, setActivityOpen, director, setHandSteps } = useApp();
   const { present, item } = usePresent();
   const onStage = !!present && item?.type === 'scenario' && present.view === 'stage';
-  useEffect(() => { document.documentElement.classList.toggle('on-stage', onStage); return () => document.documentElement.classList.remove('on-stage'); }, [onStage]);
+  // On the Stage, hand steps (an upload, a decision) are reached without being executed: the room acts, or → lets the Director act.
+  useEffect(() => { document.documentElement.classList.toggle('on-stage', onStage); setHandSteps(onStage); return () => { document.documentElement.classList.remove('on-stage'); setHandSteps(false); }; }, [onStage, setHandSteps]);
   const items = useMemo(() => ITEMS.filter((i) => !persona?.scope?.metricsOnly || i.steward).map((i) => ({ id: i.id, label: i.label, icon: i.icon, group: i.group, onSelect: () => go(i.id), badge: i.id === 'inbox' && session?.inbox ? String(session.inbox) : undefined })), [persona, go, session?.inbox]);
   const screen = SCREENS[route.screen];
   const menuValue = PARENT[route.screen] ?? route.screen;

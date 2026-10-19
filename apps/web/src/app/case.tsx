@@ -134,7 +134,7 @@ export function Decide({ run, onDone, extra }: { run: any; onDone?: () => void; 
     const overrides = rec && ((rec.verdict === 'DECLINE' && decision === 'APPROVED') || (rec.verdict === 'APPROVE' && decision === 'REJECTED'));
     if ((overrides || decision === 'REJECTED') && !reason.trim()) { setErr('A reason is required'); return; }
     setBusy(true); setErr('');
-    try { await post(`/runs/${run.id}/decide`, { decision, reason: reason.trim() || undefined, edits: reclassify ? { reclassify: true } : undefined }); bump(); onDone?.(); }
+    try { await post(`/runs/${run.id}/decide`, { decision, reason: reason.trim() || undefined, edits: reclassify ? { reclassify: true } : undefined }); bump(); onDone?.(); window.dispatchEvent(new CustomEvent('jahiz:action', { detail: { kind: 'decide', runId: run.id, action, decision } })); }
     catch (e: any) { setErr(e.message); } finally { setBusy(false); }
   };
   return (

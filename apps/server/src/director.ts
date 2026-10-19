@@ -148,19 +148,33 @@ export async function startScenario(key: string) {
   return { run: r, scenario: { ...s, steps }, edge, restored };
 }
 
-export async function runStep(key: string, index: number) {
+/** Steps a person in the room can do by hand instead of the Director: the customer on the phone, or the decider in the bank pane. */
+export const HAND_KINDS = new Set(['customer_upload', 'customer_reply', 'customer_accept_offer', 'decide', 'decide_employer', 'approve_policy']);
+const waiting = new Map<string, Awaited<ReturnType<typeof snapshot>>>();
+
+/**
+ * mode 'run' (default): execute the step's action. 'wait': arrive at the step
+ * without executing, so the presenter can do it by hand (the snapshot is kept
+ * to diff later). 'done': the hand action happened; diff against that
+ * snapshot, log it, move on without executing.
+ */
+export async function runStep(key: string, index: number, mode: 'run' | 'wait' | 'done' = 'run') {
   const s = SCENARIO[key]; if (!s) throw new Error(`Unknown scenario ${key}`);
   const st: DirectorStep | undefined = s.steps[index]; if (!st) throw new Error(`No step ${index}`);
   const edge = await edgeMap();
-  const snap = await snapshot();
+  const wkey = `${key}:${index}`;
+  const snap = mode === 'done' ? (waiting.get(wkey) ?? await snapshot()) : await snapshot();
+  if (mode === 'wait') waiting.set(wkey, snap); else waiting.delete(wkey);
   const t0 = Date.now();
   let result = ''; let error: string | null = null;
-  try { result = await execute(st.action, key, edge); } catch (e: any) { error = e.message; console.error('[director]', key, st.id, e); }
+  if (mode === 'run') { try { result = await execute(st.action, key, edge); } catch (e: any) { error = e.message; console.error('[director]', key, st.id, e); } }
+  else if (mode === 'wait') { result = 'Waiting for you'; }
+  else { result = 'Done by hand'; }
   invalidateHealth();
   const changes = await diff(snap);
   const screen = await resolveScreen(st.screen, edge);
   const run = (await pool.query(`SELECT * FROM layer.scenario_runs WHERE key=$1 AND status='RUNNING' ORDER BY id DESC LIMIT 1`, [key])).rows[0];
   if (run) await pool.query(`UPDATE layer.scenario_runs SET step_index=$2, log = log || $3::jsonb ${index >= s.steps.length - 1 ? ", status='DONE', finished_at=$4" : ''} WHERE id=$1`, index >= s.steps.length - 1 ? [run.id, index, JSON.stringify([{ step: st.id, result, error, ms: Date.now() - t0, at: now() }]), now()] : [run.id, index, JSON.stringify([{ step: st.id, result, error, ms: Date.now() - t0, at: now() }])]);
-  if (st.action.kind !== 'show') await pool.query(`INSERT INTO layer.activity (at, trigger, agent, action, result, scenario_key, step_id, changes) VALUES ($1,$2,NULL,$3,$4,$5,$6,$7)`, [now(), `Director ${key} · ${st.title}`, st.trigger, error ? `Error: ${error}` : result, key, st.id, JSON.stringify({ cases: changes.cases.map((c) => c.ref), messages: changes.messages.map((m) => m.id) })]);
-  return { step: { ...st, screenResolved: screen }, index, total: s.steps.length, result, error, changes, clock: { now: now().toISOString(), today: today() }, persona: st.persona ?? null, ms: Date.now() - t0 };
+  if (st.action.kind !== 'show' && mode !== 'wait') await pool.query(`INSERT INTO layer.activity (at, trigger, agent, action, result, scenario_key, step_id, changes) VALUES ($1,$2,NULL,$3,$4,$5,$6,$7)`, [now(), `Director ${key} · ${st.title}`, st.trigger, error ? `Error: ${error}` : result, key, st.id, JSON.stringify({ cases: changes.cases.map((c) => c.ref), messages: changes.messages.map((m) => m.id) })]);
+  return { step: { ...st, screenResolved: screen }, index, total: s.steps.length, result, error, changes, clock: { now: now().toISOString(), today: today() }, persona: st.persona ?? null, ms: Date.now() - t0, mode, hand: HAND_KINDS.has(st.action.kind) };
 }

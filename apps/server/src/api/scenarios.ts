@@ -9,7 +9,8 @@ scenarios.post('/scenarios/:key/start', async (req, res) => {
   try { res.json(await startScenario(req.params.key)); } catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 scenarios.post('/scenarios/:key/step', async (req, res) => {
-  try { res.json(await runStep(req.params.key, Number(req.body.index ?? 0))); } catch (e: any) { res.status(400).json({ error: e.message }); }
+  const mode = req.body.mode === 'wait' || req.body.mode === 'done' ? req.body.mode : 'run';
+  try { res.json(await runStep(req.params.key, Number(req.body.index ?? 0), mode)); } catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 scenarios.post('/scenarios/stop', async (_req, res) => { await pool.query(`UPDATE layer.scenario_runs SET status='ABANDONED', finished_at=now() WHERE status='RUNNING'`); res.json({ ok: true }); });
 scenarios.get('/scenarios/:key', async (req, res) => {

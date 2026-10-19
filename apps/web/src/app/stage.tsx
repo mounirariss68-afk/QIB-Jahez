@@ -13,13 +13,14 @@
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { cn } from '@cognirise/atelier/lib/utils';
-import { Bot, Check, ExternalLink, Landmark, Smartphone, Zap } from 'lucide-react';
+import { Bot, Check, ExternalLink, Hand, Landmark, Smartphone, Zap } from 'lucide-react';
 import { useApi } from '../lib/api';
-import { date, dateTime, maskQid, month, num, qar, title } from '../lib/format';
-import { useApp } from './state';
+import { date, dateShort, dateTime, maskQid, month, num, qar, title } from '../lib/format';
+import { HAND_EVENT, useApp } from './state';
+import { plainActivity } from './plain';
 import { usePresent } from './present';
-import { CaseReader, Decide, Messages, Proposals, Recommendation, TrailList } from './case';
-import { AgentTag, Chip, Clause, Empty, Kv, PERSONA_SHORT, Ref, SegChip, StatusChip, Table } from './ui';
+import { Decide, Messages, Recommendation, TrailList } from './case';
+import { AgentTag, Chip, Clause, Empty, Kv, PERSONA_SHORT, Ref, SegChip, StatusChip } from './ui';
 import { Phone } from '../screens/customerapp';
 
 const parseRef = (ref: string | undefined | null) => { if (!ref) return { kind: '', param: null as string | null }; const i = ref.indexOf(':'); return i < 0 ? { kind: ref, param: null } : { kind: ref.slice(0, i), param: ref.slice(i + 1) }; };
@@ -39,13 +40,31 @@ export function Stage() {
   const stepCustomer = ['customer', 'customer-app', 'mailbox'].includes(target.kind) ? target.param : target.kind === 'comms' && target.param?.startsWith('customer=') ? target.param.slice(9) : target.kind === 'case' ? caseData?.case?.customer_id ?? null : null;
   const [customerId, setCustomerId] = useState<string | null>(null);
   useEffect(() => { const next = stepCustomer ?? customerId ?? defaultCustomer; if (next && next !== customerId) setCustomerId(next); }, [stepCustomer, defaultCustomer, customerId]);
+  // The phone turns to what the step is about: the upload screen when the customer must upload, the conversation when a message went out, the offer when it landed.
+  const kind = step?.action.kind ?? '';
+  const pending = !!director?.pending;
+  const offerLanded = !!director?.changes?.messages.some((m) => m.message_type === 'OFFER' || m.message_type === 'CURRENT_ACCOUNT_OFFER');
+  const phoneView: 'home' | 'messages' | 'upload' | 'finance' | undefined =
+    kind === 'customer_upload' ? (pending ? 'upload' : 'messages')
+    : kind === 'customer_reply' ? 'messages'
+    : kind === 'customer_accept_offer' ? (pending ? 'finance' : 'home')
+    : offerLanded ? 'finance'
+    : kind === 'send_due' || kind === 'email_in' || target.kind === 'comms' || target.kind === 'mailbox' ? 'messages'
+    : target.kind === 'customer-app' ? 'home'
+    : undefined;
+  // A hand action in the room (an upload on the phone, a decision in the bank pane) completes the pending step and the scenario moves on.
+  const { completeStep } = useApp();
+  useEffect(() => {
+    const on = (e: Event) => { const k = (e as CustomEvent).detail?.kind as string; const st = director?.steps[director.index]; if (director?.pending && st && (HAND_EVENT[k] ?? []).includes(st.action.kind)) completeStep(); };
+    window.addEventListener('jahiz:action', on); return () => window.removeEventListener('jahiz:action', on);
+  }, [director, completeStep]);
   if (!present || !chapter) return null;
   return (
     <div className="space-y-3">
       <Journey />
       <div className="grid gap-3 xl:grid-cols-[auto_minmax(0,1fr)_minmax(0,1.15fr)]">
         <Pane n="01" title="The customer" sub={customerId ? <Ref>{customerId}</Ref> : 'the phone'} icon={<Smartphone size={14} />}>
-          {customerId ? <div className="stage-phone"><Phone id={customerId} key={customerId} bare /></div> : <Empty>No customer in this step.</Empty>}
+          {customerId ? <div className="stage-phone"><Phone id={customerId} key={customerId} bare view={phoneView} viewKey={`${director?.index ?? 0}:${pending ? 'w' : 'r'}`} /></div> : <Empty>No customer in this step.</Empty>}
         </Pane>
         <Pane n="02" title="The agents" sub="what is happening, live" icon={<Bot size={14} />}>
           <Narration />
@@ -108,6 +127,7 @@ function Narration() {
       <p className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground"><span className="font-mono uppercase tracking-wider text-accent">step {director.index + 1} of {director.steps.length}</span>{st?.persona ? <Chip tone="primary">as {PERSONA_SHORT[st.persona] ?? st.persona}</Chip> : null}{director.restored?.length && director.index === 0 ? <Chip tone="warn" title={director.restored.join(', ')}>seeded state restored</Chip> : null}{director.status === 'done' ? <Chip tone="success">Scenario complete</Chip> : null}</p>
       <p className="mt-1 text-base font-semibold leading-tight">{st?.title}</p>
       <p className="mt-1 text-[13px] leading-relaxed text-foreground/90">{st?.narration}</p>
+      {director.pending && st ? <YourMove kind={st.action.kind} persona={st.persona} /> : null}
       <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]"><Zap className="h-3 w-3 text-accent" /><span className="text-muted-foreground">Trigger</span> <span className="font-medium">{st?.trigger}</span>{director.result ? <><span className="text-muted-foreground">· Result</span> <span className="font-mono">{director.result}</span></> : null}{director.error ? <span className="text-danger">Error: {director.error}</span> : null}</p>
       {changed.length ? <ul className="mt-2 space-y-0.5 text-[12px]">{changed.slice(0, 8).map((c, i) => <li key={i} className="flash rounded px-1">• {c}</li>)}{changed.length > 8 ? <li className="text-muted-foreground">… and {changed.length - 8} more</li> : null}</ul> : <p className="mt-2 text-[12px] text-muted-foreground">{director.busy ? 'Running the step through the engine…' : st?.action.kind === 'show' ? 'Nothing executed: this step shows what is already there.' : 'Nothing changed.'}</p>}
       <p className="mt-2"><button type="button" className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline" onClick={() => { setView('app'); if (st?.screenResolved) open(st.screenResolved); else go('overview'); }}><ExternalLink className="h-3 w-3" />Open this step in the app</button></p>
@@ -115,24 +135,45 @@ function Narration() {
   );
 }
 
-/** The live log: trigger → agent → action → result, oldest first, newest at the bottom, only what this scenario did. */
+/** A pending hand step: the room acts, or → lets the Director act. */
+function YourMove({ kind, persona }: { kind: string; persona?: string }) {
+  const who = persona ? PERSONA_SHORT[persona] ?? persona : 'the decider';
+  const text = kind === 'customer_upload' ? 'Upload the document on the phone (Documents tab), or press → and the Director uploads it.'
+    : kind === 'customer_reply' ? 'Reply on the phone (Messages), or press → and the Director replies.'
+    : kind === 'customer_accept_offer' ? 'Accept the offer on the phone, or press → and the Director accepts it.'
+    : `Decide as ${who} in the bank pane, or press → and the Director decides as the script says.`;
+  return <p className="mt-2 flex items-start gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-[13px]"><Hand className="mt-0.5 h-4 w-4 shrink-0 text-primary" /><span><span className="font-semibold text-primary">Your move. </span>{text}</span></p>;
+}
+
+/** The live log in plain language: who did what, oldest first, newest at the bottom, only what this scenario did. */
 function LiveLog({ since }: { since: number }) {
   const { data } = useApi<any[]>(`/activity?since=${since}`, { poll: 3000 });
   const { go } = useApp();
-  const rows = useMemo(() => [...(data ?? [])].reverse(), [data]);
   // The engine stamps activity with the virtual clock, which stands still during a scenario; the room wants to see time pass, so each line keeps the wall-clock moment it arrived.
   const seen = useRef(new Map<number, string>());
-  for (const a of rows) if (!seen.current.has(a.id)) seen.current.set(a.id, new Date().toLocaleTimeString('en-GB', { hour12: false }));
+  const rows = useMemo(() => {
+    const out: { id: number; at: string; who: string; text: string; kind: string; clause: string | null; raw: string }[] = [];
+    for (const a of [...(data ?? [])].reverse()) {
+      if (!seen.current.has(a.id)) seen.current.set(a.id, new Date().toLocaleTimeString('en-GB', { hour12: false }));
+      const p = plainActivity(a);
+      if (p.kind === 'skip') continue;
+      const prev = out[out.length - 1];
+      if (prev && prev.who === p.who && prev.text === p.text) continue; // the engine and the Director sometimes both log one event
+      out.push({ id: a.id, at: seen.current.get(a.id)!, who: p.who, text: p.text, kind: p.kind, clause: p.clause ?? null, raw: `${a.agent ?? a.trigger}: ${a.action} → ${a.result}` });
+    }
+    return out;
+  }, [data]);
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => { end.current?.scrollIntoView({ block: 'nearest' }); }, [rows.length]);
+  const tone: Record<string, string> = { agent: 'text-[hsl(var(--hero-primary))]', person: 'text-sky-300', customer: 'text-emerald-300', system: 'text-white/70', reset: 'text-white/50' };
   return (
     <div className="rounded-xl border border-border/60 bg-[hsl(var(--hero-background))] text-[hsl(var(--hero-foreground))]">
-      <p className="flex items-center justify-between border-b border-white/10 px-3 py-1.5 text-[11px]"><span className="font-semibold">Live log</span><span className="font-mono text-[10px] uppercase tracking-wider opacity-60">audit trail · {rows.length} entries</span></p>
-      <ol className="max-h-[42vh] min-h-[160px] space-y-1 overflow-y-auto px-3 py-2 font-mono text-[11px] leading-snug scroll-thin">
-        {rows.map((a) => (
-          <li key={a.id} className="grid grid-cols-[52px_minmax(0,1fr)] gap-x-2">
-            <span className="opacity-60">{seen.current.get(a.id)}</span>
-            <span className="min-w-0 break-words"><span className={cn('font-semibold', a.agent ? 'text-[hsl(var(--hero-primary))]' : 'opacity-80')}>{a.agent ? a.agent : a.trigger?.startsWith('Director') ? 'director' : 'system'}</span> {a.action}<span className="opacity-70"> → {a.result}</span>{a.clause ? <button type="button" className="ms-1 underline decoration-dotted opacity-80 hover:opacity-100" onClick={() => go('policies', String(a.clause).split(' ')[0])}>[{a.clause}]</button> : null}</span>
+      <p className="flex items-center justify-between border-b border-white/10 px-3 py-1.5 text-[11px]"><span className="font-semibold">What the agents did</span><span className="font-mono text-[10px] uppercase tracking-wider opacity-60">{rows.length} entries</span></p>
+      <ol className="max-h-[44vh] min-h-[160px] space-y-1.5 overflow-y-auto px-3 py-2 text-[13px] leading-snug scroll-thin">
+        {rows.map((r) => (
+          <li key={r.id} title={r.raw} className={cn('grid grid-cols-[48px_minmax(0,1fr)] gap-x-2', r.kind === 'reset' && 'opacity-60')}>
+            <span className="pt-0.5 font-mono text-[10px] opacity-50">{r.at.slice(0, 5)}</span>
+            <span className="min-w-0"><span className={cn('font-semibold', tone[r.kind] ?? '')}>{r.who}:</span> {r.text}{r.clause ? <button type="button" className="ms-1.5 rounded border border-white/20 px-1 font-mono text-[10px] opacity-70 hover:opacity-100" onClick={() => go('policies', String(r.clause).split(' ')[0])}>{r.clause}</button> : null}</span>
           </li>
         ))}
         {!rows.length ? <li className="opacity-60">Waiting for the first step…</li> : null}
@@ -191,12 +232,13 @@ function CoreRecord({ id }: { id: string }) {
 }
 
 // ------------------------------------------------------------------ what the step points at
+// One idea per view: the decision if there is one, else the one fact the step is about. Detail stays in the app ("Open this step in the app").
 function Focus({ kind, param, customerId }: { kind: string; param: string | null; customerId: string | null }) {
   switch (kind) {
-    case 'case': return param ? <FocusBox label="The case"><CaseReader refCode={param} /></FocusBox> : null;
+    case 'case': return param ? <FocusBox label="The case"><CaseFocus refCode={param} /></FocusBox> : null;
     case 'inbox': return <FocusBox label="Waiting on the person in the room"><InboxFocus /></FocusBox>;
     case 'document': return param ? <FocusBox label="The document Fahis read"><DocumentFocus id={Number(param)} /></FocusBox> : null;
-    case 'employer': return param ? <FocusBox label="The employer pack"><EmployerFocus id={param} /></FocusBox> : null;
+    case 'employer': return param ? <FocusBox label="The employer"><EmployerFocus id={param} /></FocusBox> : null;
     case 'policies': return <FocusBox label="The policy"><PolicyFocus param={param} /></FocusBox>;
     case 'comms': return <FocusBox label="Messages"><CommsFocus param={param} /></FocusBox>;
     case 'audit': return <FocusBox label="The trail"><AuditFocus param={param} /></FocusBox>;
@@ -209,6 +251,35 @@ function Focus({ kind, param, customerId }: { kind: string; param: string | null
 function FocusBox({ label, children }: { label: string; children: ReactNode }) {
   return <div className="rounded-xl border border-border/60 bg-card/40 p-3"><p className="eyebrow mb-2">{label}</p>{children}</div>;
 }
+/** The decision a run waits for from the person in the room: the recommendation in one line and the two buttons. */
+function DecisionFor({ runId, onDone }: { runId: number; onDone: () => void }) {
+  const { data: run } = useApi<any>(`/runs/${runId}`);
+  if (!run) return null;
+  return <div className="space-y-2"><Recommendation run={run} /><Decide run={run} onDone={onDone} /></div>;
+}
+
+/** The case in four facts and, when it waits on the person in the room, the decision. */
+function CaseFocus({ refCode }: { refCode: string }) {
+  const { data: d, reload } = useApi<any>(`/cases/${encodeURIComponent(refCode)}`);
+  const { data: rs } = useApi<any>('/reasons');
+  const { persona } = useApp();
+  if (!d) return <p className="text-[12px] text-muted-foreground">Loading…</p>;
+  const k = d.case;
+  const waiting = (d.runs ?? []).find((r: any) => (r.status === 'WAITING' || r.status === 'ESCALATED') && r.waiting_on_persona === persona?.key);
+  const other = !waiting ? (d.runs ?? []).find((r: any) => r.status === 'WAITING' || r.status === 'ESCALATED') : null;
+  const reason = (rs?.reasons ?? []).find((r: any) => r.code === k.primary_reason)?.label ?? k.primary_reason;
+  const lastMsg = (d.messages ?? [])[0];
+  return (
+    <div className="space-y-3">
+      <p className="flex flex-wrap items-center gap-2 text-[12px]"><Ref>{k.ref}</Ref><StatusChip status={k.state} />{k.close_code ? <StatusChip status={k.close_code} /> : null}<span className="text-muted-foreground">class {k.cls}</span></p>
+      <p className="text-base font-semibold leading-tight">{k.name_en} <span className="text-[13px] font-normal text-muted-foreground"><SegChip s={k.segment} /></span></p>
+      <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Kv k="Why it fell out" v={reason ?? '—'} /><Kv k="Attempts" v={`${k.attempts} of ${k.max_attempts}`} /><Kv k="Next action" v={k.next_action_at ? date(k.next_action_at) : '—'} /><Kv k="Last message" v={lastMsg ? `${dateShort(lastMsg.scheduled_for ?? lastMsg.sent_at)} · ${title(lastMsg.message_type)}` : '—'} />
+      </dl>
+      {waiting ? <DecisionFor runId={waiting.id} onDone={reload} /> : other ? <p className="text-[12px] text-muted-foreground">Waiting on {PERSONA_SHORT[other.waiting_on_persona] ?? other.waiting_on_persona}.</p> : null}
+    </div>
+  );
+}
 
 function InboxFocus() {
   const { data, reload } = useApi<any>('/inbox', { poll: 5000 });
@@ -218,63 +289,60 @@ function InboxFocus() {
   if (!approvals.length && !tasks.length) return <Empty>Nothing waits on {persona?.role ?? 'this person'} right now.</Empty>;
   return (
     <div className="space-y-3">
-      {approvals.slice(0, 3).map((a) => <ApprovalFocus key={a.run_id} a={a} onDone={reload} />)}
-      {tasks.slice(0, 3).map((t) => <div key={t.id} className="rounded-lg border border-border/60 bg-card/50 p-2.5 text-[12px]"><p className="flex flex-wrap items-center gap-2"><Chip tone="primary">{t.kind.replace(/_/g, ' ').toLowerCase()}</Chip>{t.case_ref ? <Ref>{t.case_ref}</Ref> : null}{t.name_en ? <span>{t.name_en}</span> : null}</p><p className="mt-1 text-sm font-medium">{t.title}</p>{t.brief ? <p className="mt-1 line-clamp-4 whitespace-pre-wrap text-muted-foreground">{typeof t.brief === 'string' ? t.brief : JSON.stringify(t.brief)}</p> : null}</div>)}
+      {approvals.slice(0, 2).map((a) => <ApprovalFocus key={a.run_id} a={a} onDone={reload} />)}
+      {tasks.slice(0, 2).map((t) => <div key={t.id} className="rounded-lg border border-border/60 bg-card/50 p-2.5 text-[12px]"><p className="flex flex-wrap items-center gap-2"><Chip tone="primary">{t.kind.replace(/_/g, ' ').toLowerCase()}</Chip>{t.name_en ? <span>{t.name_en}</span> : null}</p><p className="mt-1 text-sm font-medium">{t.title}</p></div>)}
     </div>
   );
 }
 function ApprovalFocus({ a, onDone }: { a: any; onDone: () => void }) {
-  const { data: run } = useApi<any>(`/runs/${a.run_id}`);
   return (
     <div className="rounded-lg border border-border/60 bg-card/50 p-2.5">
-      <p className="flex flex-wrap items-center gap-2 text-[12px]"><Chip tone="primary">{a.workflow_id}</Chip>{a.case_ref ? <Ref>{a.case_ref}</Ref> : null}{a.name_en ? <span>{a.name_en}</span> : null}<SegChip s={a.segment} /><Chip>{title(a.action_type)}</Chip></p>
-      <p className="mt-1 text-sm font-medium">{a.title}</p>
-      {run ? <div className="mt-2 space-y-2"><Recommendation run={run} /><Decide run={run} onDone={onDone} /></div> : null}
+      <p className="flex flex-wrap items-center gap-2 text-[12px]">{a.name_en ? <span className="font-medium">{a.name_en}</span> : null}<SegChip s={a.segment} /><Chip>{title(a.action_type)}</Chip></p>
+      <p className="mt-1 text-sm">{a.title}</p>
+      <div className="mt-2"><DecisionFor runId={a.run_id} onDone={onDone} /></div>
     </div>
   );
 }
 
+/** The document: the picture, what Fahis found in one line, and the decision if it waits on the room. */
 function DocumentFocus({ id }: { id: number }) {
   const { data: d, reload } = useApi<any>(`/documents/${id}`);
   const { persona } = useApp();
   if (!d) return <p className="text-[12px] text-muted-foreground">Loading…</p>;
   const mine = d.run && (d.run.status === 'WAITING' || d.run.status === 'ESCALATED') && d.run.waiting_on_persona === persona?.key;
+  const conf = d.overall_confidence != null ? `${Math.round(Number(d.overall_confidence) * 100)}%` : null;
+  const props: any[] = d.proposals ?? [];
+  const field = (p: any) => `${String(p.target ?? '').replace(/_/g, ' ')} ${String(p.field ?? '').replace(/_/g, ' ')}: ${p.old_value ?? '—'} → ${String(p.new_value ?? '').replace(/_/g, ' ').toLowerCase()}`;
   return (
-    <div className="grid gap-3 md:grid-cols-[200px_minmax(0,1fr)]">
-      <img src={`/api/documents/${id}/image.svg`} alt={`${d.type} specimen`} className="w-full rounded-lg border border-border/60 bg-white" />
-      <div className="min-w-0 space-y-2">
-        <p className="flex flex-wrap items-center gap-2 text-[12px]"><Chip>{d.type}</Chip><StatusChip status={d.state} />{d.recommendation ? <StatusChip status={d.recommendation} /> : null}{d.mode ? <StatusChip status={d.mode} /> : null}{d.overall_confidence != null ? <Chip tone="primary">confidence {Math.round(Number(d.overall_confidence) * 100)}%</Chip> : null}{d.assurance ? <Chip>{title(d.assurance)}</Chip> : null}</p>
-        <p className="text-sm">{d.name_en} <SegChip s={d.segment} /> {d.case_ref ? <Ref>{d.case_ref}</Ref> : null}</p>
-        {d.flags?.length ? <p className="text-[12px] text-warn">{(d.flags as string[]).join(' · ')}</p> : null}
+    <div className="space-y-3">
+      <div className="flex gap-3">
+        <img src={`/api/documents/${id}/image.svg`} alt={`${d.type} specimen`} className="w-[150px] shrink-0 rounded-lg border border-border/60 bg-white" />
+        <div className="min-w-0 space-y-1.5">
+          <p className="flex flex-wrap items-center gap-2 text-[12px]"><Chip>{title(d.type)}</Chip><StatusChip status={d.state} />{conf ? <Chip tone="primary">read at {conf}</Chip> : null}</p>
+          <p className="text-sm font-medium">{d.name_en}</p>
+          {props.slice(0, 2).map((p: any) => <p key={p.id} className="font-mono text-[12px]">{field(p)}</p>)}
+          {d.flags?.length ? <p className="text-[12px] text-warn">{(d.flags as string[]).join(' · ')}</p> : null}
+        </div>
       </div>
-      <div className="md:col-span-2 space-y-2">
-        <Proposals rows={d.proposals ?? []} />
-        {mine && d.run ? <ApprovalRun id={d.run.id} onDone={reload} /> : d.run?.status === 'WAITING' ? <p className="text-[12px] text-muted-foreground">Waiting on {PERSONA_SHORT[d.run.waiting_on_persona] ?? d.run.waiting_on_persona}.</p> : null}
-      </div>
+      {mine && d.run ? <DecisionFor runId={d.run.id} onDone={reload} /> : d.run?.status === 'WAITING' ? <p className="text-[12px] text-muted-foreground">Waiting on {PERSONA_SHORT[d.run.waiting_on_persona] ?? d.run.waiting_on_persona}.</p> : null}
     </div>
   );
 }
-function ApprovalRun({ id, onDone }: { id: number; onDone: () => void }) {
-  const { data: run } = useApi<any>(`/runs/${id}`);
-  if (!run) return null;
-  return <div className="space-y-2"><Recommendation run={run} /><Decide run={run} onDone={onDone} /></div>;
-}
 
+/** The employer: the leverage number, the recommendation, the decision. The criteria table is one click away in the app. */
 function EmployerFocus({ id }: { id: string }) {
   const { data: d, reload } = useApi<any>(`/employers/${id}`);
   const { persona } = useApp();
   const { data: run } = useApi<any>(d?.run?.id ? `/runs/${d.run.id}` : null);
   if (!d) return <p className="text-[12px] text-muted-foreground">Loading…</p>;
-  const e = d.employer; const rv = d.reviews?.[0]; const pack = rv?.pack;
+  const e = d.employer; const pack = d.reviews?.[0]?.pack;
   const blocked = (d.staff ?? []).filter((s: any) => s.eligible === false && (s.reason_codes ?? []).includes('R02')).length;
+  const met = pack ? pack.criteria.filter((c: any) => c.ok).length : null;
   const mine = run && (run.status === 'WAITING' || run.status === 'ESCALATED') && run.waiting_on_persona === persona?.key;
   return (
     <div className="space-y-3">
-      <p className="flex flex-wrap items-center gap-2 text-[12px]"><Ref>{e.id}</Ref><StatusChip status={e.approval_status === 'UNDER_REVIEW' ? 'UNDER_REVIEW_E' : e.approval_status} /><span>{title(e.sector)} · {num(e.headcount)} staff · CR to {e.cr_valid_to ? date(e.cr_valid_to) : '—'} · WPS {e.wps_active ? 'active' : 'inactive'}</span></p>
-      <p className="text-base font-semibold">{e.name_en} <span className="ar text-muted-foreground">{e.name_ar}</span></p>
-      <dl className="grid grid-cols-3 gap-3"><Kv k="QIB-salaried customers" v={num(d.staff?.length ?? 0)} /><Kv k="Blocked only by this employer" v={<span className="text-lg font-bold text-primary">{num(blocked)}</span>} /><Kv k="Muwathiq recommends" v={pack ? <StatusChip status={pack.recommendation} /> : '—'} /></dl>
-      {pack ? <Table><thead><tr><th>Criterion (POL-03 §5.1)</th><th>Value</th><th>Required</th><th></th></tr></thead><tbody>{pack.criteria.map((c: any) => <tr key={c.key}><td className="text-[12px]">{c.label}</td><td className="font-mono text-[12px]">{c.value}</td><td className="text-[12px] text-muted-foreground">{c.required}</td><td>{c.ok ? <Chip tone="success">met</Chip> : <Chip tone="danger">not met</Chip>}</td></tr>)}</tbody></Table> : null}
-      {pack?.narrative ? <p className="text-[13px] leading-relaxed">{pack.narrative}</p> : null}
+      <p className="text-base font-semibold leading-tight">{e.name_en} <StatusChip status={e.approval_status === 'UNDER_REVIEW' ? 'UNDER_REVIEW_E' : e.approval_status} /></p>
+      <dl className="grid grid-cols-3 gap-3"><Kv k="QIB-salaried customers" v={num(d.staff?.length ?? 0)} /><Kv k="Waiting only on this approval" v={<span className="text-xl font-bold text-primary">{num(blocked)}</span>} /><Kv k="Criteria met" v={pack ? `${met} of ${pack.criteria.length}` : '—'} /></dl>
       {mine ? <div className="space-y-2"><Recommendation run={run} /><Decide run={run} onDone={() => reload()} /></div> : d.run?.status === 'WAITING' ? <p className="text-[12px] text-muted-foreground">Waiting on {PERSONA_SHORT[d.run.waiting_on_persona] ?? d.run.waiting_on_persona}.</p> : null}
     </div>
   );
@@ -285,7 +353,7 @@ function PolicyFocus({ param }: { param: string | null }) {
   const { data: inbox, reload } = useApi<any>('/inbox', { poll: 5000 });
   if (!p) return <p className="text-[12px] text-muted-foreground">Loading…</p>;
   const pending = (inbox?.approvals ?? []).filter((a: any) => a.action_type === 'APPROVE_POLICY_CHANGE');
-  const versions: any[] = (p.versions ?? []).slice(0, 3);
+  const versions: any[] = (p.versions ?? []).slice(0, 1);
   const domain = param ? (p.domains ?? []).find((d: any) => d.id === param.split(' ')[0]) : null;
   return (
     <div className="space-y-3">
@@ -304,18 +372,18 @@ function PolicyFocus({ param }: { param: string | null }) {
 
 function CommsFocus({ param }: { param: string | null }) {
   const q = param ? (param.includes('=') ? param : `customer=${param}`) : '';
-  const { data } = useApi<any>(`/comms?${q}&limit=12`);
+  const { data } = useApi<any>(`/comms?${q}&limit=5`);
   if (!data) return <p className="text-[12px] text-muted-foreground">Loading…</p>;
   const rows = data.rows ?? data;
   if (!rows?.length) return <Empty>No messages{q.startsWith('status=') ? ` with status ${q.slice(7).toLowerCase()}` : ''}.</Empty>;
-  return <Messages rows={rows.slice(0, 12)} compact />;
+  return <Messages rows={rows.slice(0, 5)} compact />;
 }
 
 function AuditFocus({ param }: { param: string | null }) {
   const q = param ? (param.includes('=') ? param : `customer=${param}`) : '';
-  const { data } = useApi<any>(`/audit?${q}&limit=20`);
+  const { data } = useApi<any>(`/audit?${q}&limit=8`);
   if (!data) return <p className="text-[12px] text-muted-foreground">Loading…</p>;
-  return <TrailList rows={(data.rows ?? []).slice(0, 20)} compact />;
+  return <TrailList rows={(data.rows ?? []).slice(0, 8)} compact />;
 }
 
 function AgentFocus({ id }: { id: string | null }) {

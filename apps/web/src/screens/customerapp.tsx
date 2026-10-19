@@ -29,8 +29,17 @@ export function CustomerAppScreen() {
   );
 }
 
-/** The customer's phone. `bare` renders the phone alone (the Stage docks it in its own pane); otherwise the explanatory panels sit beside it. */
-export function Phone({ id, bare }: { id: string; bare?: boolean }) {
+/** A hand action on the phone, for the Director: a pending step that matches is completed and the scenario moves on. */
+export const fireHandAction = (kind: string, detail: Record<string, unknown> = {}) => window.dispatchEvent(new CustomEvent('jahiz:action', { detail: { kind, ...detail } }));
+
+/**
+ * The customer's phone. `bare` renders the phone alone (the Stage docks it in
+ * its own pane); otherwise the explanatory panels sit beside it. `view` turns
+ * the phone to what the current step is about (the Stage changes `viewKey`
+ * each step so the same view re-applies); 'finance' is Home scrolled to the
+ * offer card.
+ */
+export function Phone({ id, bare, view, viewKey }: { id: string; bare?: boolean; view?: 'home' | 'messages' | 'upload' | 'finance'; viewKey?: string | number }) {
   const { data: d, error, reload } = useApi<any>(`/customer/${id}/phone`, { poll: 8000 });
   const { openCase, go } = useApp();
   const [tab, setTab] = useState<'home' | 'messages' | 'upload'>('home');
@@ -43,6 +52,7 @@ export function Phone({ id, bare }: { id: string; bare?: boolean }) {
   const file = useRef<HTMLInputElement>(null);
   const finance = useRef<HTMLDivElement>(null);
   useEffect(() => { setSpecimen(''); setMsg(''); setReply(''); setTab('home'); setSo({}); }, [id]);
+  useEffect(() => { if (!view) return; if (view === 'finance') { setTab('home'); window.setTimeout(() => finance.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 350); } else setTab(view); }, [view, viewKey]);
   if (error) return <div className="customer-phone-state"><Empty>{error}</Empty><button type="button" className="customer-retry" onClick={() => reload()}>Try again</button></div>;
   if (!d) return <div className="customer-phone-state"><div className="customer-skeleton" /><div className="customer-skeleton short" /><div className="customer-skeleton" /><span>Loading customer phone…</span></div>;
   const c = d.customer;
@@ -68,6 +78,7 @@ export function Phone({ id, bare }: { id: string; bare?: boolean }) {
       const r = await post(`/customer/${id}/upload`, body);
       setMsg(`Received. Mustaqbil matched it to ${r.caseId ? `case ${r.caseId}` : 'the customer'} and Fahis is examining document ${r.documentIds.join(', ')}. The checker decides next.`);
       bump(); reload(); setTab('messages');
+      fireHandAction('customer_upload', { customer: id });
     } catch (e: any) { setMsg(e?.message || 'Upload failed. Please try again.'); }
     finally { setBusy(false); }
   };
@@ -81,7 +92,7 @@ export function Phone({ id, bare }: { id: string; bare?: boolean }) {
   };
   const submitReply = async () => {
     if (!reply.trim()) return;
-    if (await submit(`/customer/${id}/reply`, { text: reply })) setReply('');
+    if (await submit(`/customer/${id}/reply`, { text: reply })) { setReply(''); fireHandAction('customer_reply', { customer: id }); }
   };
 
   const phone = (
@@ -115,7 +126,7 @@ export function Phone({ id, bare }: { id: string; bare?: boolean }) {
                   <h3 className={ar ? 'ar' : ''}>{d.offer.subject}</h3>
                   <p className={ar ? 'ar' : ''}>{String(d.offer.body).split('\n\n')[1]?.slice(0, 200)}</p>
                   {accepted ? <div className="customer-complete"><CheckCircle2 size={17} />{ar ? 'تم قبول العرض' : 'Offer accepted'}</div> :
-                    <button type="button" disabled={busy} className="customer-primary-button" onClick={() => submit(`/customer/${id}/accept-offer`, {}, '')}>{busy ? <Loader2 size={16} className="animate-spin" /> : <>{ar ? 'اقبل بنقرة واحدة' : 'Accept offer'} <ChevronRight size={16} /></>}</button>}
+                    <button type="button" disabled={busy} className="customer-primary-button" onClick={async () => { if (await submit(`/customer/${id}/accept-offer`, {}, '')) fireHandAction('customer_accept_offer', { customer: id }); }}>{busy ? <Loader2 size={16} className="animate-spin" /> : <>{ar ? 'اقبل بنقرة واحدة' : 'Accept offer'} <ChevronRight size={16} /></>}</button>}
                 </section> : null}
                 {kase && !kase.paused && kase.state !== 'CLOSED' && ASK[primary] ? <section className="customer-card customer-action">
                   <div className="customer-card-heading"><span className="customer-card-icon"><FileText size={17} /></span><span>{ar ? 'مطلوب منك' : 'ACTION REQUIRED'}</span><span className="customer-action-badge">{ar ? 'مطلوب' : 'To do'}</span></div>
