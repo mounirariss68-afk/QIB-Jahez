@@ -134,6 +134,12 @@ data.get('/employers/:id', async (req, res) => {
   const e = (await pool.query(`SELECT * FROM core.employers WHERE id=$1`, [req.params.id])).rows[0];
   if (!e) return res.status(404).json({ error: 'Not found' });
   const staff = (await pool.query(`SELECT cu.id, cu.name_en, cu.segment, em.salary_total, r.eligible, r.reason_codes, k.ref AS case_ref, k.state AS case_state FROM core.employment em JOIN core.customers cu ON cu.id=em.customer_id LEFT JOIN LATERAL (SELECT eligible, reason_codes FROM core.preapproval_results pr WHERE pr.customer_id=cu.id ORDER BY run_id DESC LIMIT 1) r ON TRUE LEFT JOIN LATERAL (SELECT ref, state FROM layer.cases k WHERE k.customer_id=cu.id AND k.state<>'CLOSED' ORDER BY id DESC LIMIT 1) k ON TRUE WHERE em.employer_id=$1 ORDER BY cu.id`, [req.params.id])).rows;
+  // The stored results can predate a record change (an explained gap, a scenario reset): qualify the staff live so "waiting only on this approval" is true now.
+  if (staff.length <= 200) {
+    const policy = await activePolicy();
+    const facts = await loadFacts({ c: pool, actor: 'api' }, staff.map((s: any) => s.id));
+    for (const s of staff) { const f = facts.get(s.id); if (!f) continue; const q = qualify(f, policy, today()); s.live_eligible = q.eligible; s.live_reasons = (q.reasons as string[]).filter((x) => x !== 'R20'); }
+  }
   const reviews = (await pool.query(`SELECT * FROM layer.employer_reviews WHERE employer_id=$1 ORDER BY id DESC`, [req.params.id])).rows;
   const run = reviews[0]?.run_id ? (await pool.query(`SELECT r.id, r.status, r.waiting_on_persona, k.ref AS case_ref FROM layer.runs r LEFT JOIN layer.cases k ON k.id=r.case_id WHERE r.id=$1`, [reviews[0].run_id])).rows[0] : null;
   const trail = (await pool.query(`SELECT * FROM layer.trail WHERE summary ILIKE $1 ORDER BY id DESC LIMIT 20`, [`%${req.params.id}%`])).rows;
@@ -192,7 +198,9 @@ export async function caseDetail(ref: string) {
     pool.query(`SELECT * FROM layer.trail WHERE case_id=$1 ORDER BY id`, [k.id]),
     pool.query(`SELECT * FROM layer.case_reasons WHERE case_id=$1 ORDER BY id`, [k.id]),
   ]);
-  return { case: k, runs, events: events.rows, messages: messages.rows, inbound: inbound.rows, documents: documents.rows, proposals: proposals.rows, tasks: tasks.rows, trail: trail.rows, reasons: reasons.rows };
+  // When the leading reason was cured and the next one took over (SUPERSEDED), the customer's story continues in the newer case.
+  const successor = k.state === 'CLOSED' && k.close_code === 'SUPERSEDED' ? (await pool.query(`SELECT ref FROM layer.cases WHERE customer_id=$1 AND id > $2 ORDER BY id LIMIT 1`, [k.customer_id, k.id])).rows[0]?.ref ?? null : null;
+  return { case: k, runs, events: events.rows, messages: messages.rows, inbound: inbound.rows, documents: documents.rows, proposals: proposals.rows, tasks: tasks.rows, trail: trail.rows, reasons: reasons.rows, successor };
 }
 data.get('/cases/:ref', async (req, res) => {
   const p = personaOf(req);

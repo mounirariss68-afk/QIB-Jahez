@@ -17,7 +17,7 @@ import { Bot, Check, ExternalLink, Hand, Landmark, Smartphone, Zap } from 'lucid
 import { api, useApi } from '../lib/api';
 import { date, dateShort, dateTime, maskQid, month, num, qar, title } from '../lib/format';
 import { HAND_EVENT, useApp } from './state';
-import { plainActivity } from './plain';
+import { gapReason, monthName, plainActivity } from './plain';
 import { usePresent } from './present';
 import { Decide, Messages, Recommendation, TrailList } from './case';
 import { AgentTag, Chip, Clause, Empty, Kv, PERSONA_SHORT, Ref, SegChip, StatusChip } from './ui';
@@ -49,6 +49,7 @@ export function Stage() {
     : kind === 'customer_reply' ? 'messages'
     : kind === 'customer_accept_offer' ? (pending ? 'finance' : 'home')
     : offerLanded ? 'finance'
+    : kind === 'employer_review' || kind === 'decide_employer' ? 'home'   // the home card says the bank is reviewing the employer
     : kind === 'send_due' || kind === 'email_in' || target.kind === 'comms' || target.kind === 'mailbox' ? 'messages'
     : target.kind === 'customer-app' ? 'home'
     : undefined;
@@ -78,7 +79,7 @@ export function Stage() {
         </Pane>
         <Pane n="02" title="The agents" sub="what is happening, live" icon={<Bot size={14} />}>
           <Narration />
-          <LiveLog since={present.activityFloor} />
+          <LiveLog since={present.activityFloor} customerId={customerId} />
         </Pane>
         <Pane n="03" title="The bank" sub="the record, and the person deciding" icon={<Landmark size={14} />}>
           {customerId ? <CoreRecord id={customerId} /> : null}
@@ -138,9 +139,24 @@ function Narration() {
       <p className="mt-1 text-base font-semibold leading-tight">{st?.title}</p>
       <p className="mt-1 text-[13px] leading-relaxed text-foreground/90">{st?.narration}</p>
       {director.pending && st ? <YourMove kind={st.action.kind} persona={st.persona} /> : null}
-      <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]"><Zap className="h-3 w-3 text-accent" /><span className="text-muted-foreground">Trigger</span> <span className="font-medium">{st?.trigger}</span>{director.result ? <><span className="text-muted-foreground">· Result</span> <span className="font-mono">{director.result}</span></> : null}{director.error ? <span className="text-danger">Error: {director.error}</span> : null}</p>
-      {changed.length ? <ul className="mt-2 space-y-0.5 text-[12px]">{changed.slice(0, 8).map((c, i) => <li key={i} className="flash rounded px-1">• {c}</li>)}{changed.length > 8 ? <li className="text-muted-foreground">… and {changed.length - 8} more</li> : null}</ul> : <p className="mt-2 text-[12px] text-muted-foreground">{director.busy ? 'Running the step through the engine…' : st?.action.kind === 'show' ? 'Nothing executed: this step shows what is already there.' : 'Nothing changed.'}</p>}
+      {director.busy && st?.action.kind === 'advance_clock' ? <DaysPassing days={Number((st.action as any).days ?? 0)} /> : null}
+      <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]"><Zap className="h-3 w-3 text-accent" /><span className="text-muted-foreground">Trigger</span> <span className="font-medium">{st?.trigger}</span>{director.busy ? <><span className="text-muted-foreground">· Result</span> <span className="font-mono">working…</span></> : director.result ? <><span className="text-muted-foreground">· Result</span> <span className="font-mono">{director.result}</span></> : null}{director.error ? <span className="text-danger">Error: {director.error}</span> : null}</p>
+      {director.busy ? <p className="mt-2 text-[12px] text-muted-foreground">Running the step through the engine…</p> : changed.length ? <ul className="mt-2 space-y-0.5 text-[12px]">{changed.slice(0, 8).map((c, i) => <li key={i} className="flash rounded px-1">• {c}</li>)}{changed.length > 8 ? <li className="text-muted-foreground">… and {changed.length - 8} more</li> : null}</ul> : <p className="mt-2 text-[12px] text-muted-foreground">{director.busy ? 'Running the step through the engine…' : st?.action.kind === 'show' ? 'Nothing executed: this step shows what is already there.' : 'Nothing changed.'}</p>}
       <p className="mt-2"><button type="button" className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline" onClick={() => { setView('app'); if (st?.screenResolved) open(st.screenResolved); else go('overview'); }}><ExternalLink className="h-3 w-3" />Open this step in the app</button></p>
+    </div>
+  );
+}
+
+const pl = (n: number, word: string) => `${num(n)} ${word}${Number(n) === 1 ? '' : 's'}`;
+/** Time passing on the Stage: the clock advance walks day by day through the engine, and the room watches the days go by. */
+function DaysPassing({ days }: { days: number }) {
+  const { data: p } = useApi<any>('/control/clock/progress', { poll: 1000 });
+  const day = p?.day ?? 0; const total = p?.days ?? days;
+  return (
+    <div className="mt-2 rounded-lg border border-accent/30 bg-accent/5 p-2.5">
+      <p className="flex items-center justify-between text-[12px]"><span className="font-semibold">Day {day} of {total}{p?.today ? <span className="ms-2 font-mono text-[11px] text-muted-foreground">{date(p.today)}</span> : null}</span><span className="text-[11px] text-muted-foreground">each day: scan, due messages, deadlines, re-checks</span></p>
+      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-border/60"><div className="h-full rounded-full bg-accent transition-all duration-700" style={{ width: `${Math.round((day / Math.max(1, total)) * 100)}%` }} /></div>
+      {p ? <p className="mt-1.5 text-[12px] text-muted-foreground">{pl(p.sent, 'message')} sent · {num(p.blocked)} stopped by Hami · {pl(p.timeouts, 'deadline')} passed · {pl(p.rechecks, 're-check')}</p> : null}
     </div>
   );
 }
@@ -163,23 +179,37 @@ function YourMove({ kind, persona }: { kind: string; persona?: string }) {
 }
 
 /** The live log in plain language: who did what, oldest first, newest at the bottom, only what this scenario did. */
-function LiveLog({ since }: { since: number }) {
+function LiveLog({ since, customerId }: { since: number; customerId?: string | null }) {
   const { data } = useApi<any[]>(`/activity?since=${since}`, { poll: 3000 });
   const { go } = useApp();
   // The engine stamps activity with the virtual clock, which stands still during a scenario; the room wants to see time pass, so each line keeps the wall-clock moment it arrived.
   const seen = useRef(new Map<number, string>());
   const rows = useMemo(() => {
-    const out: { id: number; at: string; who: string; text: string; kind: string; clause: string | null; raw: string }[] = [];
+    type Row = { id: number; at: string; who: string; text: string; kind: string; clause: string | null; raw: string; customer: string | null };
+    const out: Row[] = [];
     for (const a of [...(data ?? [])].reverse()) {
       if (!seen.current.has(a.id)) seen.current.set(a.id, new Date().toLocaleTimeString('en-GB', { hour12: false }));
       const p = plainActivity(a);
       if (p.kind === 'skip') continue;
       const prev = out[out.length - 1];
       if (prev && prev.who === p.who && prev.text === p.text) continue; // the engine and the Director sometimes both log one event
-      out.push({ id: a.id, at: seen.current.get(a.id)!, who: p.who, text: p.text, kind: p.kind, clause: p.clause ?? null, raw: `${a.agent ?? a.trigger}: ${a.action} → ${a.result}` });
+      out.push({ id: a.id, at: seen.current.get(a.id)!, who: p.who, text: p.text, kind: p.kind, clause: p.clause ?? null, raw: `${a.agent ?? a.trigger}: ${a.action} → ${a.result}`, customer: a.customer_id ?? null });
     }
-    return out;
-  }, [data]);
+    // One decision can touch many customers at once (an employer approval re-qualifies fourteen); the room reads one line per idea, not forty-two.
+    // Lines from the same agent with the same shape (figures aside) inside the same minute fold into one, kept where the first fell, the stage's customer preferred.
+    const shape = (r: Row) => `${r.who}|${r.text.replace(/[\d.,]+/g, '#')}`;
+    const groups = new Map<string, Row[]>();
+    for (const r of out) { const k = `${shape(r)}|${r.at.slice(0, 5)}`; const g = groups.get(k); if (g) g.push(r); else groups.set(k, [r]); }
+    const drop = new Set<number>(); const folded = new Map<number, Row>();
+    for (const g of groups.values()) {
+      if (g.length < 3) continue;
+      const keep = g.find((r) => r.customer && r.customer === customerId) ?? g[0];
+      const perCustomer = g.every((r) => r.customer);
+      folded.set(g[0].id, { ...keep, id: g[0].id, text: `${keep.text} · ${perCustomer ? `and ${g.length - 1} more customers` : `${g.length} times`}` });
+      for (const r of g) if (r.id !== g[0].id) drop.add(r.id);
+    }
+    return out.filter((r) => !drop.has(r.id)).map((r) => folded.get(r.id) ?? r);
+  }, [data, customerId]);
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => { end.current?.scrollIntoView({ block: 'nearest' }); }, [rows.length]);
   const tone: Record<string, string> = { agent: 'text-[hsl(var(--hero-primary))]', person: 'text-sky-300', customer: 'text-emerald-300', system: 'text-white/70', reset: 'text-white/50' };
@@ -202,14 +232,16 @@ function LiveLog({ since }: { since: number }) {
 
 /** The customer's record as the core bank holds it: a representative screen. Fields an agent changed in the last step flash. */
 function CoreRecord({ id }: { id: string }) {
-  const { data: d } = useApi<any>(`/customers/${id}`);
+  const { data: d, error } = useApi<any>(`/customers/${id}`);
   const { director } = useApp();
   const stepIndex = director?.index ?? -1;
   const prev = useRef<{ id: string; fields: Record<string, string>; at: number } | null>(null);
   const [changed, setChanged] = useState<Set<string>>(new Set());
   const fields = useMemo(() => {
-    if (!d) return null;
+    if (!d || d.customer?.id !== id) return null;   // the previous customer's record while the next one loads is not this customer
     const c = d.customer; const idn = d.identity ?? {}; const emp = d.employment ?? {}; const q = d.qualification; const last = (d.credits ?? []).slice(-1)[0]; const cur = (d.accounts ?? []).find((a: any) => a.type === 'CURRENT');
+    // After a payment the rules pass again, but the policy holds the offer until the cooling period ends: the record says so rather than "eligible".
+    const cooling = (d.cases ?? []).find((k: any) => k.state === 'COOLING');
     return {
       'Customer': `${c.rim_no} · ${c.nameEn}`,
       'Status': title(c.status),
@@ -220,19 +252,22 @@ function CoreRecord({ id }: { id: string }) {
       'Employer': emp.employerName ? `${emp.employerName} · ${title(emp.employerStatus)}` : '—',
       'Last salary credit': last ? `${month(last.month)} · ${qar(last.amount)}` : '—',
       'Current account': cur ? `${cur.iban?.slice(-8) ?? cur.id} · ${title(cur.status)}` : '—',
-      'Pre-approval': q ? (q.eligible ? `Eligible · ${qar(q.amount)} over ${q.tenor ?? '—'} months` : `Not eligible · ${(q.reasons ?? q.reasonCodes ?? []).join(', ') || '—'}`) : '—',
+      'Pre-approval': cooling && q?.eligible ? `Cooling period to ${cooling.recheck_on ? date(cooling.recheck_on) : '—'} · then ${qar(q.amount)}` : q ? (q.eligible ? `Eligible · ${qar(q.amount)}${(q.tenor ?? q.inputs?.tenor) ? ` over ${q.tenor ?? q.inputs?.tenor} months` : ''}` : `Not eligible · ${(q.reasons ?? q.reasonCodes ?? []).join(', ') || '—'}`) : '—',
     } as Record<string, string>;
-  }, [d]);
+  }, [d, id]);
+  const timer = useRef<number | null>(null);
+  useEffect(() => { setChanged(new Set()); }, [id]);   // a new customer on the Stage carries no flags over from the previous one
   useEffect(() => {
     if (!fields) return;
     // The first step restores the seeded state; that is not an agent writing, so differences are flagged only from the second step on.
     if (prev.current && prev.current.id === id && prev.current.at >= 1) {
       const diff = new Set(Object.keys(fields).filter((k) => prev.current!.fields[k] !== fields[k]));
-      if (diff.size) { setChanged(diff); const t = window.setTimeout(() => setChanged(new Set()), 7000); prev.current = { id, fields, at: stepIndex }; return () => window.clearTimeout(t); }
+      if (diff.size) { setChanged(diff); if (timer.current) window.clearTimeout(timer.current); timer.current = window.setTimeout(() => setChanged(new Set()), 7000); }
     }
     prev.current = { id, fields, at: stepIndex };
   }, [fields, id, stepIndex]);
-  if (!fields) return <div className="rounded-xl border border-border/60 p-3 text-[12px] text-muted-foreground">Reading the core record…</div>;
+  useEffect(() => () => { if (timer.current) window.clearTimeout(timer.current); }, []);
+  if (!fields) return <div className="rounded-xl border border-border/60 p-3 text-[12px] text-muted-foreground">{error ? `The record is out of this persona's scope: ${error}` : 'Reading the core record…'}</div>;
   return (
     <div className="rounded-xl border border-border/60 bg-card/60">
       <p className="flex flex-wrap items-center gap-2 border-b border-border/60 px-3 py-1.5 text-[11px]"><Landmark className="h-3.5 w-3.5 text-muted-foreground" /><span className="font-semibold">Core banking · customer record</span><Chip title="A representative screen: the fields the real system holds, read through the connector. Not QIB's actual core banking UI.">representative screen</Chip><span className="ms-auto font-mono text-[10px] text-muted-foreground">read-only · writes go through Muhaddith after approval</span></p>
@@ -262,8 +297,25 @@ function Focus({ kind, param, customerId }: { kind: string; param: string | null
     case 'agents': return <FocusBox label="The agent"><AgentFocus id={param} /></FocusBox>;
     case 'triggers': return <FocusBox label="The clock"><ClockFocus /></FocusBox>;
     case 'customer': case 'customer-app': case 'mailbox': return customerId ? <FocusBox label="The eligibility check"><QualificationFocus id={customerId} /></FocusBox> : null;
+    case 'health': case 'overview': return <FocusBox label="The dashboard, in three numbers"><HealthFocus /></FocusBox>;
     default: return <FocusBox label={kind || 'This step'}><p className="text-[12px] text-muted-foreground">This step shows the {kind || 'overview'} screen; use "Open this step in the app" to show it in full.</p></FocusBox>;
   }
+}
+
+/** What moved on the dashboard: the eligible count tonight and what this scenario did to it, counted from the trail. */
+function HealthFocus() {
+  const { present } = usePresent();
+  const { data: h } = useApi<any>('/health', { poll: 5000 });
+  const { data: t } = useApi<any>(present ? `/trail/tally?after=${present.floor}` : null, { poll: 5000 });
+  if (!h) return <p className="text-[12px] text-muted-foreground">Loading…</p>;
+  const top: any[] = (h.employers ?? []).slice(0, 3);
+  return (
+    <div className="space-y-3">
+      <dl className="grid grid-cols-3 gap-3"><Kv k="Eligible tonight" v={<span className="text-xl font-bold text-primary">{num(h.eligible)}</span>} /><Kv k="Of the base" v={`${h.eligibleRate}% of ${num(h.customers)}`} /><Kv k="Still fall out" v={num(h.fallouts)} /></dl>
+      {t ? <p className="text-[13px]">Since this scenario started: <b>{num(t.requalified)}</b> re-qualified, <b>{num(t.offers)}</b> offers on phones, <b>{num(t.record_writes)}</b> record writes, <b>{num(t.human_decisions)}</b> human decisions, <b>{num(t.blocked)}</b> messages stopped by the guard.</p> : null}
+      {top.length ? <p className="text-[12px] text-muted-foreground">Next employers worth a review: {top.map((e) => `${e.name} (${e.customers} customers)`).join(' · ')}.</p> : null}
+    </div>
+  );
 }
 function FocusBox({ label, children }: { label: string; children: ReactNode }) {
   return <div className="rounded-xl border border-border/60 bg-card/40 p-3"><p className="eyebrow mb-2">{label}</p>{children}</div>;
@@ -276,11 +328,13 @@ function DecisionFor({ runId, onDone }: { runId: number; onDone: () => void }) {
 }
 
 /** The case in four facts and, when it waits on the person in the room, the decision. */
-function CaseFocus({ refCode }: { refCode: string }) {
-  const { data: d, reload } = useApi<any>(`/cases/${encodeURIComponent(refCode)}`);
+function CaseFocus({ refCode, from }: { refCode: string; from?: string }) {
+  const { data: d, reload } = useApi<any>(`/cases/${encodeURIComponent(refCode)}`, { poll: 4000 });
   const { data: rs } = useApi<any>('/reasons');
   const { persona } = useApp();
   if (!d) return <p className="text-[12px] text-muted-foreground">Loading…</p>;
+  // The leading reason was cured and the next one took over: the room follows the customer, not the file number.
+  if (d.successor && d.successor !== refCode) return <CaseFocus refCode={d.successor} from={refCode} />;
   const k = d.case;
   const waiting = (d.runs ?? []).find((r: any) => (r.status === 'WAITING' || r.status === 'ESCALATED') && r.waiting_on_persona === persona?.key);
   const other = !waiting ? (d.runs ?? []).find((r: any) => r.status === 'WAITING' || r.status === 'ESCALATED') : null;
@@ -288,7 +342,7 @@ function CaseFocus({ refCode }: { refCode: string }) {
   const lastMsg = (d.messages ?? [])[0];
   return (
     <div className="space-y-3">
-      <p className="flex flex-wrap items-center gap-2 text-[12px]"><Ref>{k.ref}</Ref><StatusChip status={k.state} />{k.close_code ? <StatusChip status={k.close_code} /> : null}<span className="text-muted-foreground">class {k.cls}</span></p>
+      <p className="flex flex-wrap items-center gap-2 text-[12px]"><Ref>{k.ref}</Ref><StatusChip status={k.state} />{k.close_code ? <StatusChip status={k.close_code} /> : null}<span className="text-muted-foreground">class {k.cls}</span>{from ? <span className="text-muted-foreground">· continues <Ref>{from}</Ref>, whose leading reason was cured</span> : null}</p>
       <p className="text-base font-semibold leading-tight">{k.name_en} <span className="text-[13px] font-normal text-muted-foreground"><SegChip s={k.segment} /></span></p>
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Kv k="Why it fell out" v={reason ?? '—'} /><Kv k="Attempts" v={`${k.attempts} of ${k.max_attempts}`} /><Kv k="Next action" v={k.next_action_at ? date(k.next_action_at) : '—'} /><Kv k="Last message" v={lastMsg ? `${dateShort(lastMsg.scheduled_for ?? lastMsg.sent_at)} · ${title(lastMsg.message_type)}` : '—'} />
@@ -330,14 +384,20 @@ function DocumentFocus({ id }: { id: number }) {
   const conf = d.overall_confidence != null ? `${Math.round(Number(d.overall_confidence) * 100)}%` : null;
   const props: any[] = d.proposals ?? [];
   // A proposal in one readable line: "QID renew: 30 Sept 2026 → valid to 4 Oct 2029", never raw JSON.
-  const val = (v: any): string => {
+  const val = (v: any, gap = false): string => {
     if (v === null || v === undefined || v === '') return '—';
     const str = String(v);
     try { const o = JSON.parse(str); if (o && typeof o === 'object') { const exp = o['expires on'] ?? o.expiresOn ?? o.expires ?? o.expiry; if (exp) return `valid to ${date(exp)}`; return Object.entries(o).filter(([k]) => !/image|source|ref|number/i.test(k)).slice(0, 2).map(([k, x]) => `${k} ${x}`).join(', ') || 'updated'; } } catch { /* plain value */ }
     if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return date(str);
+    if (gap && /^[A-Z_]+$/.test(str)) return gapReason(str);
     return str.replace(/_/g, ' ').toLowerCase();
   };
-  const field = (p: any) => `${String(p.field ?? p.target ?? '').split('.').slice(-2).join(' ').replace(/_/g, ' ')}: ${val(p.old_value)} → ${val(p.new_value)}`;
+  // An explained gap reads "salary July 2026: — → explained, a job change (under 60 days)", not a code and a month number.
+  const field = (p: any) => {
+    const f = String(p.field ?? ''); const gap = p.target === 'salary_credits' && /^\d{4}-\d{2}$/.test(f);
+    const name = gap ? `salary ${monthName(f)}` : String(p.field ?? p.target ?? '').split('.').slice(-2).join(' ').replace(/_/g, ' ');
+    return `${name}: ${val(p.old_value)} → ${gap ? `explained, ${val(p.new_value, true)}` : val(p.new_value)}`;
+  };
   return (
     <div className="space-y-3">
       <div className="flex gap-3">
@@ -361,7 +421,7 @@ function EmployerFocus({ id }: { id: string }) {
   const { data: run } = useApi<any>(d?.run?.id ? `/runs/${d.run.id}` : null);
   if (!d) return <p className="text-[12px] text-muted-foreground">Loading…</p>;
   const e = d.employer; const pack = d.reviews?.[0]?.pack;
-  const blocked = (d.staff ?? []).filter((s: any) => s.eligible === false && (s.reason_codes ?? []).includes('R02')).length;
+  const blocked = (d.staff ?? []).filter((s: any) => { const el = s.live_eligible ?? s.eligible; const rs = s.live_reasons ?? s.reason_codes ?? []; return el === false && rs.includes('R02'); }).length;
   const met = pack ? pack.criteria.filter((c: any) => c.ok).length : null;
   const mine = run && (run.status === 'WAITING' || run.status === 'ESCALATED') && run.waiting_on_persona === persona?.key;
   return (
@@ -431,13 +491,14 @@ function ClockFocus() {
 }
 
 function QualificationFocus({ id }: { id: string }) {
-  const { data: d } = useApi<any>(`/customers/${id}`);
-  if (!d) return <p className="text-[12px] text-muted-foreground">Loading…</p>;
+  const { data: d, error } = useApi<any>(`/customers/${id}`);
+  if (!d || d.customer?.id !== id) return <p className="text-[12px] text-muted-foreground">{error ? `Out of this persona's scope: ${error}` : 'Loading…'}</p>;
   const q = d.qualification; const checks: any[] = q?.checks ?? [];
   const failing = checks.filter((c) => !c.pass);
+  const cooling = (d.cases ?? []).find((k: any) => k.state === 'COOLING');
   return (
     <div className="space-y-2">
-      <p className="flex flex-wrap items-center gap-2 text-sm">{q?.eligible ? <Chip tone="success">Eligible for One Click</Chip> : <Chip tone="danger">Not eligible</Chip>}{q?.eligible ? <span className="font-mono">{qar(q.amount)}{q.tenor ? ` over ${q.tenor} months` : ''}</span> : null}<span className="text-[12px] text-muted-foreground">{checks.length} rules checked · {failing.length} failing</span></p>
+      <p className="flex flex-wrap items-center gap-2 text-sm">{q?.eligible && cooling ? <Chip tone="warn">Cooling period{cooling.recheck_on ? ` to ${date(cooling.recheck_on)}` : ''} · offer held</Chip> : q?.eligible ? <Chip tone="success">Eligible for One Click</Chip> : <Chip tone="danger">Not eligible</Chip>}{q?.eligible ? <span className="font-mono">{qar(q.amount)}{(q.tenor ?? q.inputs?.tenor) ? ` over ${q.tenor ?? q.inputs?.tenor} months` : ''}</span> : null}<span className="text-[12px] text-muted-foreground">{checks.length} rules checked · {failing.length} failing</span></p>
       {failing.length ? <ul className="space-y-1 text-[12px]">{failing.slice(0, 6).map((c) => <li key={c.code} className="flex gap-2"><Chip tone="danger">{c.code}</Chip><span>{c.detail}</span></li>)}</ul> : <p className="text-[12px] text-muted-foreground">Every rule passes under the active policy{d.messages?.length ? `; last message ${dateTime(d.messages[0].scheduled_for ?? d.messages[0].sent_at)}` : ''}.</p>}
       {d.cases?.[0] ? <p className="text-[12px] text-muted-foreground">Case <Ref>{d.cases[0].ref}</Ref> · <StatusChip status={d.cases[0].state} /></p> : null}
     </div>

@@ -26,7 +26,7 @@ The **Director bar** docks at the bottom of the screen when a scenario starts. E
 | Scenario | Shape | What it shows |
 |---|---|---|
 | S1 QID renewed in a day | happy path | Nightly scan opens the case → push and in-app request → the customer uploads the renewed QID in the app → Fahis reads it (Claude or Offline) and proposes the update → the checker approves in one click → Muhaddith writes the record → Muahil re-qualifies → the offer lands on the phone → the trail. |
-| S2 New job, new employer | bank action with leverage | A salary gap explained with an HR letter and accepted by Credit Policy; then one employer approval re-qualifies fourteen customers at once. |
+| S2 New job, new employer | bank action with leverage | A customer who changed jobs: the month between the two jobs explained with an HR letter and accepted by Credit Policy, but the offer waits because the new employer is not approved; one employer approval then re-qualifies him and thirteen colleagues at once. |
 | S3 The RM's client | refusal | Hami blocks the queued SMS and push to a client who became Tamayuz (HNWI) after scheduling, and says which clause; the RM gets a brief instead. A Mass customer replies STOP: the offer push is blocked, the service e-mail still goes. |
 | S4 Nobody answers / wrong document | escalation and exception | Thirty days pass on the virtual clock: notices, deadline, escalation, the T+90 restriction proposal and the Supervisor's decision with a reason; then a document that belongs to someone else is rejected and re-requested. |
 | S5 The collections boundary | boundary | A missed instalment pauses the case and suppresses offers; a payment starts the cooling period; a customer past 30 DPD is handed to Collections, who acknowledge. |

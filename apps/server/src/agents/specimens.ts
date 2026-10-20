@@ -8,7 +8,7 @@
  * kinds are deliberately wrong: an expired copy, a different person's card, a
  * name that does not match, an unreadable photo.
  */
-import { addMonths, addDays, fmtDate, windowMonths, type DocType } from '@jahiz/domain';
+import { addMonths, addDays, fmtDate, fmtMonth, windowMonths, type DocType } from '@jahiz/domain';
 import type { FullFacts } from '../core/connector.js';
 import { buildMrz } from './mrz.js';
 
@@ -69,8 +69,17 @@ export function buildSpecimen(kind: SpecimenKind, f: FullFacts, today: string, o
     case 'hr-letter': {
       const months = windowMonths(today, 6);
       const gap = f.salaryCredits.length ? months.find((m) => !f.salaryCredits.some((x) => x.month === m && x.amount > 0)) ?? months[3] : months[3];
-      const fields = { ...base, employer: f.employerName ?? 'Employer', gap_month: gap, reason: 'UNPAID_LEAVE', reason_text: 'unpaid leave', dated: addDays(today, -2), continuous: true };
-      const text = `${fields.employer} · Human Resources\nDate ${fields.dated}\nTo Qatar Islamic Bank\nSubject: Salary for ${fmtDate(gap + '-01').slice(2)}\nWe confirm that ${f.nameEn} was on approved ${fields.reason_text} during ${gap}, during which no salary was paid. Employment is continuous and salary resumed the following month.\nHR Manager`;
+      const month = fmtMonth(gap);
+      const employer = f.employerName ?? 'Employer';
+      // A customer who joined the employer after the gap month changed jobs: the letter comes from the new employer and names the joining date.
+      const joined = f.employedSince && f.employedSince.slice(0, 7) > gap ? f.employedSince.slice(0, 10) : null;
+      if (joined) {
+        const fields = { ...base, employer, gap_month: gap, reason: 'JOB_CHANGE_LE_60_DAYS', reason_text: 'a change of employer', joined_on: joined, salary_total: f.salaryTotal, dated: addDays(today, -2), continuous: true };
+        const text = `${employer} · Human Resources\nDate ${fields.dated}\nTo Qatar Islamic Bank\nSubject: Employment of ${f.nameEn}\nWe confirm that ${f.nameEn} joined us on ${fmtDate(joined)} as Senior Officer, at a monthly salary of QAR ${Number(f.salaryTotal).toLocaleString('en-US')} transferred to QIB. No salary was due for ${month}, which fell between the end of the previous employment and the joining date (under 60 days). Employment is continuous since joining.\nHR Manager`;
+        return { kind, type: 'HR_LETTER', flaw: null, fields, text, title: `HR letter — ${f.nameEn}` };
+      }
+      const fields = { ...base, employer, gap_month: gap, reason: 'UNPAID_LEAVE', reason_text: 'unpaid leave', dated: addDays(today, -2), continuous: true };
+      const text = `${fields.employer} · Human Resources\nDate ${fields.dated}\nTo Qatar Islamic Bank\nSubject: Salary for ${month}\nWe confirm that ${f.nameEn} was on approved ${fields.reason_text} during ${month}, during which no salary was paid. Employment is continuous and salary resumed the following month.\nHR Manager`;
       return { kind, type: 'HR_LETTER', flaw: null, fields, text, title: `HR letter — ${f.nameEn}` };
     }
     case 'liability-letter': {

@@ -3,6 +3,7 @@ import type { PoolClient } from 'pg';
 import { CLAUSES, defaultParams } from '@jahiz/domain';
 import { insertMany, setMeta } from '../db.js';
 import { now } from '../clock.js';
+import { ENGINE_VERSION, WORLD_VERSION } from '../version.js';
 
 export async function seedLayer(c: PoolClient, edge: Record<string, string>, seed: number) {
   await c.query(`INSERT INTO layer.policy_versions (version, status, proposed_by, approved_by, proposed_at, approved_at, effective_from, params, diff, rationale) VALUES (1,'ACTIVE','head','head',$1,$1,$1,$2,'[]','Design defaults (v1). Every value is a setting; QIB’s answers replace them on screen.')`, [now(), JSON.stringify(defaultParams())]);
@@ -20,5 +21,5 @@ export async function seedLayer(c: PoolClient, edge: Record<string, string>, see
     { key: 'clock', label: 'Virtual clock', label_ar: 'الساعة الافتراضية', kind: 'DEMO', schedule: 'Advance by a day, a week or thirty days', last_fired_at: null, next_fire_at: null, fired_count: 0, last_result: null },
   ]);
   await setMeta(c, 'edge_cases', edge);
-  await setMeta(c, 'seed', { seed, at: new Date().toISOString(), engine: 'jahiz-1.0' });
+  await setMeta(c, 'seed', { seed, at: new Date().toISOString(), engine: ENGINE_VERSION, world: WORLD_VERSION });
 }

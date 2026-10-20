@@ -4,7 +4,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { Panel, PageColumns } from '@cognirise/atelier/layout';
-import { Bell, Check, CheckCircle2, ChevronRight, CircleUserRound, FileText, Home, Loader2, MessageCircle, Paperclip, Send, Smartphone, Sparkles, Upload, Wallet } from 'lucide-react';
+import { Bell, Check, CheckCircle2, ChevronRight, CircleUserRound, FileText, Home, Landmark, Loader2, MessageCircle, Paperclip, Send, Smartphone, Sparkles, Upload, Wallet } from 'lucide-react';
 import { bump, post, useApi } from '../lib/api';
 import { date, dateTime, qar, rel, title } from '../lib/format';
 import { useApp } from '../app/state';
@@ -59,6 +59,8 @@ export function Phone({ id, bare, view, viewKey }: { id: string; bare?: boolean;
   const ar = c.lang === 'ar';
   const kase = d.case;
   const primary = kase?.primary_reason;
+  // An employer under review is the bank's step: the phone says so instead of asking for a certificate the record already has.
+  const employerReview = primary === 'R02' && !!c.employer;
   const unread = d.inbox.filter((m: any) => m.kind !== 'OUTGOING').length;
   const accepted = d.inbox.some((m: any) => m.meta?.accepted);
   const goTab = (next: typeof tab) => setTab(next);
@@ -128,7 +130,8 @@ export function Phone({ id, bare, view, viewKey }: { id: string; bare?: boolean;
                   {accepted ? <div className="customer-complete"><CheckCircle2 size={17} />{ar ? 'تم قبول العرض' : 'Offer accepted'}</div> :
                     <button type="button" disabled={busy} className="customer-primary-button" onClick={async () => { if (await submit(`/customer/${id}/accept-offer`, {}, '')) fireHandAction('customer_accept_offer', { customer: id }); }}>{busy ? <Loader2 size={16} className="animate-spin" /> : <>{ar ? 'اقبل بنقرة واحدة' : 'Accept offer'} <ChevronRight size={16} /></>}</button>}
                 </section> : null}
-                {kase && !kase.paused && kase.state !== 'CLOSED' && ASK[primary] ? <section className="customer-card customer-action">
+                {kase && !kase.paused && kase.state !== 'CLOSED' && employerReview ? <section className="customer-card customer-empty-card"><span className="customer-empty-icon"><Landmark size={19} /></span><div><h3 className={ar ? 'ar' : ''}>{ar ? 'نراجع جهة عملك' : 'We are reviewing your employer'}</h3><p className={ar ? 'ar' : ''}>{ar ? `تجري إضافة ${c.employer} إلى قائمة جهات العمل المعتمدة لدينا. لا إجراء مطلوب منك.` : `${c.employer} is being added to our approved employers. Nothing is needed from you.`}</p><p className="customer-ref">{ar ? 'المرجع' : 'Reference'} <strong>{kase.ref}</strong></p></div></section>
+                : kase && !kase.paused && kase.state !== 'CLOSED' && ASK[primary] ? <section className="customer-card customer-action">
                   <div className="customer-card-heading"><span className="customer-card-icon"><FileText size={17} /></span><span>{ar ? 'مطلوب منك' : 'ACTION REQUIRED'}</span><span className="customer-action-badge">{ar ? 'مطلوب' : 'To do'}</span></div>
                   <h3 className={ar ? 'ar' : ''}>{ar ? ASK_AR[primary] ?? ASK[primary] : ASK[primary]}</h3>
                   <p className="customer-ref">{ar ? 'المرجع' : 'Reference'} <strong>{kase.ref}</strong></p>

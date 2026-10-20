@@ -73,20 +73,34 @@ export async function tickAll(c: PoolClient, opts: { scenario?: string | null; c
   return { ...d, timeouts: t, rechecks: r };
 }
 
-/** Advance the virtual clock by N days: for each day, 02:00 scan, then 09:15 due messages and deadlines. */
-export async function advanceClock(days: number, opts: { scenario?: string | null } = {}) {
+/** Where a running clock advance stands, for the Stage to show time passing (null when the clock is still). */
+export type ClockProgress = { day: number; days: number; today: string; sent: number; blocked: number; timeouts: number; rechecks: number; startedAt: string };
+let progress: ClockProgress | null = null;
+export const clockProgress = () => progress;
+
+/**
+ * Advance the virtual clock by N days: for each day, 02:00 scan, then 09:15 and 14:05 due messages, deadlines and re-checks.
+ * `focus` (the Director) scans only those customers on the intermediate days and the whole base on the last, so thirty days pass
+ * in seconds on the Stage while every reminder, deadline and cooling period still happens in order through the real engine.
+ */
+export async function advanceClock(days: number, opts: { scenario?: string | null; focus?: string[] } = {}) {
   const summary = { days, scans: 0, sent: 0, blocked: 0, timeouts: 0, rechecks: 0, opened: 0, closed: 0 };
-  for (let i = 0; i < days; i++) {
-    const next = (await import('@jahiz/domain')).addDays(today(), 1);
-    setClock(dohaAt(next, '01:30'));
-    await tx(async (c) => { await ageDpd(c, next); await payrollRun(c, next); });
-    setClock(dohaAt(next, '02:00'));
-    await tx(async (c) => { const s = await scan(c, { trigger: 'Nightly scan', scenario: opts.scenario }); summary.scans++; summary.opened += s.opened.length; summary.closed += s.closed.length; });
-    setClock(dohaAt(next, '09:15'));
-    await tx(async (c) => { const r = await tickAll(c, opts); summary.sent += r.sent; summary.blocked += r.blocked; summary.timeouts += r.timeouts; summary.rechecks += r.rechecks; });
-    setClock(dohaAt(next, '14:05'));
-    await tx(async (c) => { const r = await tickAll(c, opts); summary.sent += r.sent; summary.blocked += r.blocked; summary.timeouts += r.timeouts; });
-  }
+  progress = { day: 0, days, today: today(), sent: 0, blocked: 0, timeouts: 0, rechecks: 0, startedAt: new Date().toISOString() };
+  try {
+    for (let i = 0; i < days; i++) {
+      const next = (await import('@jahiz/domain')).addDays(today(), 1);
+      const last = i === days - 1;
+      setClock(dohaAt(next, '01:30'));
+      await tx(async (c) => { await ageDpd(c, next); await payrollRun(c, next); });
+      setClock(dohaAt(next, '02:00'));
+      await tx(async (c) => { const s = await scan(c, { trigger: 'Nightly scan', scenario: opts.scenario, ids: opts.focus?.length && !last ? opts.focus : undefined }); summary.scans++; summary.opened += s.opened.length; summary.closed += s.closed.length; });
+      setClock(dohaAt(next, '09:15'));
+      await tx(async (c) => { const r = await tickAll(c, opts); summary.sent += r.sent; summary.blocked += r.blocked; summary.timeouts += r.timeouts; summary.rechecks += r.rechecks; });
+      setClock(dohaAt(next, '14:05'));
+      await tx(async (c) => { const r = await tickAll(c, opts); summary.sent += r.sent; summary.blocked += r.blocked; summary.timeouts += r.timeouts; });
+      progress = { ...progress!, day: i + 1, today: today(), sent: summary.sent, blocked: summary.blocked, timeouts: summary.timeouts, rechecks: summary.rechecks };
+    }
+  } finally { progress = null; }
   await persistClock();
   await tx((c) => addActivity(c, { trigger: 'Virtual clock', agent: null, action: `Advanced ${days} day(s) to ${today()}`, result: `${summary.scans} scan(s) · ${summary.sent} sent · ${summary.blocked} blocked · ${summary.timeouts} deadline(s) · ${summary.rechecks} re-check(s) · ${summary.opened} opened · ${summary.closed} closed`, scenario_key: opts.scenario }));
   await tx((c) => c.query(`UPDATE layer.triggers SET last_fired_at=$1, fired_count=fired_count+1, last_result=$2 WHERE key='clock'`, [now(), `+${days} day(s) → ${today()}`]));

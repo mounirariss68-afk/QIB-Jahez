@@ -35,7 +35,9 @@ export const EDGES: Edge[] = [
     replay: [{ day: -60, action: { kind: 'scan' } }] },
   { key: 'EC02', id: 'DEMO-C-00002', title: 'Mass resident, QID expired 8 days ago; uploads the renewed QID today', apply: (d, t) => { clean(d, t); resident(d, t, 'EGY', 'Omar Tarek Haddad', 'عمر طارق حداد'); mass(d); salary(d, 11000, t); d.lang = 'ar'; d.app = true; d.push = true; d.marketing = true; d.qid.expires = addDays(t, -8); d.qid.issued = addMonths(d.qid.expires, -36); d.injected = ['R07']; },
     replay: [{ day: -7, action: { kind: 'scan' } }] },
-  { key: 'EC03', id: 'DEMO-C-00003', title: 'High Value resident, salary missing in July (unpaid leave)', apply: (d, t) => { clean(d, t); resident(d, t, 'JOR', 'Rami Samer Mansour', 'رامي سامر منصور'); d.segment = 'HIGH_VALUE'; d.rmId = null; d.privateBanking = false; d.deposits = 90000; salary(d, 32000, t); d.employerId = 'DEMO-E-008'; const july = windowMonths(t, 6)[3]; d.credits.find((c) => c.month === july)!.amount = 0; d.app = true; d.push = true; d.marketing = true; d.injected = ['R01']; },
+  // S2 is one story: Rami changed jobs. The month between the two jobs had no salary (R01) and the new employer, DEMO-E-047, is not yet approved (R02).
+  // The HR letter clears the gap; the offer waits for the employer decision, which re-qualifies him with the thirteen colleagues.
+  { key: 'EC03', id: 'DEMO-C-00003', title: 'High Value resident who changed jobs: one month without salary, new employer DEMO-E-047 not yet approved', apply: (d, t) => { clean(d, t); resident(d, t, 'JOR', 'Rami Samer Mansour', 'رامي سامر منصور'); d.segment = 'HIGH_VALUE'; d.rmId = null; d.privateBanking = false; d.deposits = 90000; salary(d, 32000, t); const months = windowMonths(t, 6); const between = months[3]; d.credits.find((c) => c.month === between)!.amount = 0; d.employerId = 'DEMO-E-047'; d.previousEmployerId = 'DEMO-E-008'; d.since = `${months[4]}-01`; d.app = true; d.push = true; d.marketing = true; d.injected = ['R01', 'R02']; },
     replay: [{ day: -6, action: { kind: 'scan' } }] },
   { key: 'EC04', id: 'DEMO-C-00004', title: 'Mass resident, salary moved to another bank since May; consent on file', apply: (d, t) => { clean(d, t); resident(d, t, 'PHL', 'Maria Grace Santos', 'ماريا غريس سانتوس'); mass(d); salary(d, 7500, t); const w = windowMonths(t, 6); for (const m of w.slice(1)) d.credits.find((c) => c.month === m)!.amount = 0; d.salaryBank = 'QIB'; d.app = true; d.push = true; d.marketing = true; d.injected = ['R01']; },
     replay: [{ day: -20, action: { kind: 'scan' } }, { day: -15, action: { kind: 'upload', specimen: 'salary-cert-elsewhere' } }, { day: -14, action: { kind: 'decide', persona: 'supervisor', decision: 'APPROVED', reason: 'Certificate verified; salary paid at Doha Bank' } }] },
@@ -87,6 +89,6 @@ export const EDGES: Edge[] = [
     replay: [{ day: -24, action: { kind: 'scan' } }] },
 ];
 
-/** 13 more customers for employer DEMO-E-047 so the leverage case counts 14. */
-export const E047_EXTRA_IDS = Array.from({ length: 13 }, (_, i) => `DEMO-C-${String(28 + i).padStart(5, '0')}`);
+/** 12 more customers for employer DEMO-E-047: with Rami (EC03) and Bilal (EC05) the leverage case counts 14. */
+export const E047_EXTRA_IDS = Array.from({ length: 12 }, (_, i) => `DEMO-C-${String(28 + i).padStart(5, '0')}`);
 export function applyE047(d: Draft, today: string) { clean(d, today); d.segment = d.segment === 'VVIP' || d.segment === 'HNWI' ? 'HIGH_VALUE' : d.segment; d.privateBanking = false; d.rmId = null; d.employerId = 'DEMO-E-047'; d.injected = ['R02']; if (d.total > 48000) salary(d, 30000, today); }

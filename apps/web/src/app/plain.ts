@@ -29,6 +29,9 @@ const num = (n: string | number) => Number(String(n).replace(/,/g, '')).toLocale
 const dateOf = (iso: string) => { const d = new Date(iso); return isNaN(+d) ? iso : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); };
 const monthOf = (ym: string) => { const [y, m] = ym.split('-'); const d = new Date(Number(y), Number(m) - 1, 1); return isNaN(+d) ? ym : d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }); };
 const low = (s: string) => s.replace(/_/g, ' ').toLowerCase();
+/** An explained-gap reason code as a person would say it. */
+export const gapReason = (code: string) => ({ UNPAID_LEAVE: 'unpaid leave', DELAYED_PAYROLL: 'delayed payroll', MATERNITY: 'maternity leave', JOB_CHANGE_LE_60_DAYS: 'a job change (under 60 days)', OTHER: 'another reason' } as Record<string, string>)[code] ?? low(code);
+export const monthName = (ym: string) => monthOf(ym);
 const lead = (s: string) => s.trim().replace(/^[A-Z](?![A-Z])/, (c) => c.toLowerCase());
 const persona = (k: string) => PERSON[k.trim().toLowerCase()] ?? k.trim();
 const idsOut = (s: string) => s.replace(/\bDEMO-[A-Z]+-\d+\b/g, '').replace(/\s+,/g, ',').replace(/\s{2,}/g, ' ').trim();
@@ -43,7 +46,12 @@ export function plainActivity(a: { agent?: string | null; trigger?: string | nul
     const line = (text: string): PlainLine => ({ who, text, kind: 'agent', clause });
     switch (a.agent) {
       case 'raqib':
-        if ((m = res.match(/(\d[\d,]*) eligible/))) { const n = act.match(/on (\d[\d,]*) customer/); return line(`${n ? `${num(n[1])} customers checked, ` : ''}${num(m[1])} eligible${(m = res.match(/(\d+) opened/)) && Number(m[1]) ? `, ${m[1]} new case${m[1] === '1' ? '' : 's'}` : ''}`); }
+        if ((m = res.match(/(\d[\d,]*) eligible/))) {
+          const n = act.match(/on (\d[\d,]*) customer/);
+          // A scan of a handful of customers is the Director walking the clock for the story's customers, not a nightly scan: the room does not need it.
+          if (n && Number(n[1].replace(/,/g, '')) <= 10) return { who: '', text: '', kind: 'skip', clause };
+          return line(`${n ? `${num(n[1])} customers checked, ` : ''}${num(m[1])} eligible${(m = res.match(/(\d+) opened/)) && Number(m[1]) ? `, ${m[1]} new case${m[1] === '1' ? '' : 's'}` : ''}`);
+        }
         if (/opened/i.test(act)) return line(`case opened${(m = act.match(/\b(R\d\d)\b/)) ? ` (${m[1]})` : ''}`);
         break;
       case 'mustaqbil':
@@ -57,7 +65,7 @@ export function plainActivity(a: { agent?: string | null; trigger?: string | nul
           if (/rejected/i.test(res)) return line(`${doc} rejected, ${/differs from the record|different person/i.test(res) ? 'it belongs to someone else' : (res.split(':')[1] ?? '').trim().toLowerCase() || 'it does not match the record'}`);
           const conf = (m = res.match(/at (\d\.\d+) confidence/)) ? ` (${Math.round(Number(m[1]) * 100)}%)` : '';
           let finding = (res.split('confidence:')[1] ?? '').trim();
-          if ((m = finding.match(/Explained gap (\d{4}-\d{2}): (\w+)/))) finding = `${low(m[2])} in ${monthOf(m[1])}`;
+          if ((m = finding.match(/Explained gap (\d{4}-\d{2}): (\w+)/))) finding = `${gapReason(m[2])} in ${monthOf(m[1])}`;
           else if ((m = finding.match(/(\w+) expiry \S+ → (\S+)/))) finding = `valid to ${dateOf(m[2])}`;
           else finding = finding.replace(/→/g, 'to').toLowerCase();
           return line(`${doc} validated${conf}${finding ? `, ${finding}` : ''}`);
@@ -102,7 +110,8 @@ export function plainActivity(a: { agent?: string | null; trigger?: string | nul
     // The engine logs the customer's events and the human steps itself; the Director's own line for them would repeat it.
     if (/^Customer app|^Inbound|^Payment|^Data health/i.test(act) || /^(APPROVED|REJECTED|Approved|Rejected) by |^Employer approved|^Done by hand|^Waiting for you/i.test(res)) return { who: '', text: '', kind: 'skip', clause };
     if (/^Due messages/i.test(act)) return { who: 'Scheduler', text: `messages due now checked${(m = res.match(/(\d+) sent, (\d+) blocked/)) ? `: ${m[1]} sent, ${m[2]} blocked` : ''}`, kind: 'system', clause };
-    if (/^Virtual clock/i.test(act)) return { who: 'Clock', text: `${(m = act.match(/\+(\d+) day/)) ? `${m[1]} days pass` : 'time passes'}${(m = res.match(/(\d+) sent, (\d+) blocked, (\d+) deadline/)) ? `: ${m[1]} messages sent, ${m[2]} blocked, ${m[3]} deadlines reached` : ''}`, kind: 'system', clause };
+    if (/^Virtual clock returned/i.test(act)) return { who: 'Clock', text: `back to today${(m = res.match(/on (\d{4}-\d{2}-\d{2})/)) ? `, ${dateOf(m[1])}` : ''}`, kind: 'system', clause };
+    if (/^Virtual clock/i.test(act)) { const pl = (k: string, w: string) => `${k} ${w}${k === '1' ? '' : 's'}`; return { who: 'Clock', text: `${(m = act.match(/\+(\d+) day/)) ? `${m[1]} days pass` : 'time passes'}${(m = res.match(/(\d+) sent, (\d+) blocked, (\d+) deadline/)) ? `: ${pl(m[1], 'message')} sent, ${m[2]} blocked, ${pl(m[3], 'deadline')} reached` : ''}`, kind: 'system', clause }; }
     if (/escalation/i.test(act)) return { who: 'Scenario', text: 'escalated to the RM', kind: 'system', clause };
     if (/policy change/i.test(act)) return { who: 'Operations Supervisor', text: `policy change proposed${/waiting on head/i.test(res) ? ', waiting for the Head' : ''}`, kind: 'person', clause };
     return { who: 'Scenario', text: idsOut(res || act).slice(0, 80), kind: 'system', clause };

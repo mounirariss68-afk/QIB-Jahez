@@ -26,7 +26,7 @@ const SCHEMAS: Record<string, string> = {
   QID: '{"number":"string (11 digits)","name_en":"string","name_ar":"string","dob":"YYYY-MM-DD","nationality":"ISO alpha-3","expires_on":"YYYY-MM-DD","issued_on":"YYYY-MM-DD","unreadable":false}',
   PASSPORT: '{"number":"string","name_en":"string","nationality":"ISO alpha-3","dob":"YYYY-MM-DD","sex":"M|F","issued_on":"YYYY-MM-DD","expires_on":"YYYY-MM-DD","mrz1":"44 chars","mrz2":"44 chars"}',
   SALARY_CERT: '{"employer":"string","job_title":"string","since":"YYYY-MM-DD","salary_basic":number,"salary_allowances":number,"salary_total":number,"paid_to_bank":"string","dated":"YYYY-MM-DD","name_en":"string"}',
-  HR_LETTER: '{"employer":"string","gap_month":"YYYY-MM","reason":"UNPAID_LEAVE|DELAYED_PAYROLL|MATERNITY|JOB_CHANGE_LE_60_DAYS|OTHER","continuous":true,"dated":"YYYY-MM-DD","name_en":"string"}',
+  HR_LETTER: '{"employer":"string","gap_month":"YYYY-MM (the month without salary)","reason":"UNPAID_LEAVE|DELAYED_PAYROLL|MATERNITY|JOB_CHANGE_LE_60_DAYS (a gap between two jobs of at most 60 days)|OTHER","joined_on":"YYYY-MM-DD or null (when the letter names a joining date)","continuous":true,"dated":"YYYY-MM-DD","name_en":"string"}',
   LIABILITY_LETTER: '{"bank":"string","outstanding":number,"instalment":number,"maturity":"YYYY-MM-DD","dated":"YYYY-MM-DD","name_en":"string"}',
   SO_DECLARATION: '{"orders":[{"index":1,"amount":number,"declared":"FI|SCHOOL|FAMILY|RENT|OTHER"}],"dated":"YYYY-MM-DD"}',
   BANK_STATEMENT: '{"bank":"string","credits":[{"month":"YYYY-MM","amount":number,"narrative":"string"}],"dated":"YYYY-MM-DD"}',

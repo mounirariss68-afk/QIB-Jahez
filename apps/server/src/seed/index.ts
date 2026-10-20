@@ -16,14 +16,21 @@ import { EDGES, E047_EXTRA_IDS, applyE047 } from './edge.js';
 import { seedLayer } from './layer.js';
 import { replay } from './history.js';
 import { takeSnapshot } from './snapshot.js';
+import { WORLD_VERSION } from '../version.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SCHEMA = resolve(here, '../../../../db/schema.sql');
 const log = (m: string) => console.log(`[seed] ${m}`);
 
-export async function isSeeded(): Promise<boolean> {
-  try { const r = await pool.query(`SELECT 1 FROM layer.meta WHERE key='seed'`); return (r.rowCount ?? 0) > 0; } catch { return false; }
+/** 'yes' when the database holds the current world; 'stale' when it was built under an older seed (rebuild); 'no' when empty. */
+export async function seedState(): Promise<'yes' | 'stale' | 'no'> {
+  try {
+    const r = await pool.query(`SELECT value FROM layer.meta WHERE key='seed'`);
+    if (!(r.rowCount ?? 0)) return 'no';
+    return Number(r.rows[0].value?.world ?? 1) === WORLD_VERSION ? 'yes' : 'stale';
+  } catch { return 'no'; }
 }
+export async function isSeeded(): Promise<boolean> { return (await seedState()) === 'yes'; }
 
 /** Rebuild everything. `params` lets the Settings → Data screen reseed with a different distribution. */
 export async function reseed(params?: PolicyParams) {

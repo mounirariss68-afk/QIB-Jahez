@@ -69,11 +69,13 @@ mobile.get('/:id/home', async (req, res) => {
     const accepted = inbox.some((m: any) => m.meta?.accepted);
     const offerMsg = inbox.find((m: any) => m.meta?.type === 'OFFER' && m.kind !== 'OUTGOING') ?? null;
     const sos = (await pool.query(`SELECT id, beneficiary_type, beneficiary_name, amount FROM core.standing_orders WHERE customer_id=$1 ORDER BY id`, [id])).rows;
-    const ask = kase && !kase.paused && ASK[kase.primary_reason] ? { ...ASK[kase.primary_reason], reason: kase.primary_reason, ref: kase.ref } : null;
+    // R02 asks for a certificate only when the employer is missing from the record; an employer under review is the bank's step, nothing for the customer to do.
+    const askable = kase && !kase.paused && ASK[kase.primary_reason] && !(kase.primary_reason === 'R02' && f.employerId);
+    const ask = askable ? { ...ASK[kase.primary_reason], reason: kase.primary_reason, ref: kase.ref } : null;
     const deposits = accounts.filter((a: any) => a.type !== 'CURRENT').reduce((s: number, a: any) => s + Number(a.balance), 0);
     res.json({
       now: now().toISOString(), today: today(),
-      customer: { id: f.id, nameEn: f.nameEn, nameAr: f.nameAr, lang: f.lang, segment: f.segment, tier: f.segment === 'VVIP' ? 'Private Banking' : f.segment === 'HNWI' ? 'Tamayuz' : 'Essential', isQatari: f.isQatari, nationality: f.nationality, mobile: f.contact?.mobile, email: f.contact?.email, rimNo: f.rimNo, employer: f.employerName, salaryTotal: f.salaryTotal, marketing: f.consent.marketing_consent, optouts: f.consent.channel_optouts, status: f.status },
+      customer: { id: f.id, nameEn: f.nameEn, nameAr: f.nameAr, lang: f.lang, segment: f.segment, tier: f.segment === 'VVIP' ? 'Private Banking' : f.segment === 'HNWI' ? 'Tamayuz' : 'Essential', isQatari: f.isQatari, nationality: f.nationality, mobile: f.contact?.mobile, email: f.contact?.email, rimNo: f.rimNo, employer: f.employerName, employerStatus: f.employerId ? f.employerStatus : null, salaryTotal: f.salaryTotal, marketing: f.consent.marketing_consent, optouts: f.consent.channel_optouts, status: f.status },
       accounts, cards, facilities, standingOrders: sos, deposits,
       documents: docs.map((d: any) => ({ type: d.type, number: d.number, expiresOn: d.expires_on, issuedOn: d.issued_on, expired: d.expires_on < today(), expiringSoon: !(d.expires_on < today()) && d.expires_on <= addDays(today(), 90) })),
       inbox, case: kase, ask, uploads,

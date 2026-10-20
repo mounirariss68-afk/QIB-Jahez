@@ -98,11 +98,11 @@ export function AppState({ children }: { children: ReactNode }) {
   }, [runIndex, modeFor]);
   const stepScenario = useCallback(async (dir: 1 | -1 | 0) => {
     if (!director || director.busy) return;
+    // A pending hand step: → makes the Director do it now, and the index stays (also when it is the last step of the scenario).
+    if (dir === 1 && director.pending) { await runIndex(director.key, director.index, director.steps, 'run'); return; }
     const next = dir === 0 ? director.index : director.index + dir;
     if (next < 0 || next >= director.steps.length) return;
     if (dir === -1) { const st = director.steps[next]; setDirector((d) => d && { ...d, index: next, result: 'Showing (back)', changes: null, pending: false }); if (st.persona) { setPersonaKey(st.persona); await loadSession(); } open(st.screenResolved); return; }
-    // A pending hand step: → makes the Director do it now, and the index stays.
-    if (dir === 1 && director.pending) { await runIndex(director.key, director.index, director.steps, 'run'); return; }
     await runIndex(director.key, next, director.steps, modeFor(director.steps[next]));
   }, [director, runIndex, loadSession, open, modeFor]);
   /** The room did the pending step by hand: record it, show what changed, then move on after a beat. */

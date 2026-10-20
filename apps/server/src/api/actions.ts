@@ -17,7 +17,7 @@ import { scan } from '../agents/raqib.js';
 import { requalify } from '../agents/muahil.js';
 import { buildPack } from '../agents/muwathiq.js';
 import { receive } from '../inbound.js';
-import { sendDue, tickAll, advanceClock } from '../scheduler.js';
+import { sendDue, tickAll, advanceClock, clockProgress } from '../scheduler.js';
 import { reseed } from '../seed/index.js';
 import { invalidateHealth } from '../health.js';
 import { personaOf, assertAllowed, allowed, personaRmId } from './session.js';
@@ -230,7 +230,7 @@ actions.get('/customer/:id/phone', async (req, res) => {
     const offer = inbox.find((m: any) => m.meta?.type === 'OFFER') ?? null;
     const latest = (await pool.query(`SELECT eligible, amount, reason_codes FROM core.preapproval_results WHERE customer_id=$1 ORDER BY run_id DESC LIMIT 1`, [f.id])).rows[0] ?? null;
     const sos = (await pool.query(`SELECT * FROM core.standing_orders WHERE customer_id=$1 ORDER BY id`, [f.id])).rows;
-    res.json({ customer: { id: f.id, nameEn: f.nameEn, nameAr: f.nameAr, lang: f.lang, segment: f.segment, app: f.contact?.app_registered, push: f.contact?.push_enabled, email: f.contact?.email, mobile: f.contact?.mobile, marketing: f.consent.marketing_consent, optouts: f.consent.channel_optouts, dnc: f.consent.dnc, hasCurrentAccount: f.hasCurrentAccount, qidExpiry: f.qidExpiry, passportExpiry: f.passportExpiry, isQatari: f.isQatari },
+    res.json({ customer: { id: f.id, nameEn: f.nameEn, nameAr: f.nameAr, lang: f.lang, segment: f.segment, app: f.contact?.app_registered, push: f.contact?.push_enabled, email: f.contact?.email, mobile: f.contact?.mobile, marketing: f.consent.marketing_consent, optouts: f.consent.channel_optouts, dnc: f.consent.dnc, hasCurrentAccount: f.hasCurrentAccount, qidExpiry: f.qidExpiry, passportExpiry: f.passportExpiry, isQatari: f.isQatari, employer: f.employerId ? f.employerName : null, employerStatus: f.employerId ? f.employerStatus : null },
       inbox, case: kase, offer, eligibility: latest, standingOrders: sos, specimens: SPECIMEN_KINDS.filter((k) => f.isQatari ? !k.kind.startsWith('passport') : true), now: now().toISOString() });
   } catch (e) { bad(res, e); }
 });
@@ -299,6 +299,8 @@ actions.post('/control/scan', async (req, res) => {
 actions.post('/control/tick', async (req, res) => {
   try { const r = await tx((c) => req.body.customerId ? sendDue(c, { customerId: req.body.customerId }) : tickAll(c)); invalidateHealth(); res.json({ ok: true, ...r }); } catch (e) { bad(res, e); }
 });
+/** Where a running clock advance stands (null when the clock is still): the Stage shows the days passing. */
+actions.get('/control/clock/progress', (_req, res) => res.json(clockProgress()));
 actions.post('/control/clock', async (req, res) => {
   try { const days = Math.max(1, Math.min(90, Number(req.body.days ?? 1))); const r = await advanceClock(days); invalidateHealth(); res.json({ ok: true, ...r, today: today(), now: now().toISOString() }); } catch (e) { bad(res, e); }
 });

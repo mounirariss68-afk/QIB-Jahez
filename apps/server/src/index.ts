@@ -10,7 +10,7 @@ import { dirname, resolve } from 'node:path';
 import { aiConfigured, aiStatus } from './ai.js';
 import { pool } from './db.js';
 import { loadClock } from './clock.js';
-import { reseed, isSeeded } from './seed/index.js';
+import { reseed, seedState } from './seed/index.js';
 import { data } from './api/data.js';
 import { actions } from './api/actions.js';
 import { scenarios } from './api/scenarios.js';
@@ -40,8 +40,11 @@ if (existsSync(WEB)) {
 }
 
 async function main() {
-  if (!(await isSeeded())) {
-    console.log('First run: building the synthetic QIB customer base and replaying sixty days of history (about two minutes)...');
+  const state = await seedState();
+  if (state !== 'yes') {
+    console.log(state === 'stale'
+      ? 'The synthetic world changed since this database was built: rebuilding the customer base and replaying sixty days of history (about two minutes)...'
+      : 'First run: building the synthetic QIB customer base and replaying sixty days of history (about two minutes)...');
     seeding = reseed().finally(() => { seeding = null; });
     await seeding;
   }

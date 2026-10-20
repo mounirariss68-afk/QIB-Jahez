@@ -13,6 +13,7 @@ import { bump, post, useApi } from '../lib/api';
 import { date, dateTime, rel, title } from '../lib/format';
 import { useApp, useFlash } from './state';
 import { usePresent } from './present';
+import { gapReason, monthName } from './plain';
 import { AgentTag, Btn, Chip, ClassChip, Clause, Empty, Kv, Ref, SegChip, StatusChip, Table, PERSONA_SHORT, ReasonChip } from './ui';
 
 export const KIND: Record<string, TrailKind> = {
@@ -103,6 +104,11 @@ export function Proposals({ rows }: { rows: any[] }) {
   );
 }
 
+/** The agent's one-line summary as a person would read it: codes and month numbers spelled out. */
+const plainSummary = (s: string) => String(s ?? '')
+  .replace(/Explained gap (\d{4}-\d{2}): ([A-Z_]+)/g, (_m, ym, code) => `explained gap for ${monthName(ym)}: ${gapReason(code)}`)
+  .replace(/\b(HR_LETTER|SALARY_CERT|QID|PASSPORT|LIABILITY_LETTER|SO_DECLARATION|BANK_STATEMENT)\b/g, (m) => ({ HR_LETTER: 'HR letter', SALARY_CERT: 'Salary certificate', QID: 'QID', PASSPORT: 'Passport', LIABILITY_LETTER: 'Liability letter', SO_DECLARATION: 'Standing-order declaration', BANK_STATEMENT: 'Bank statement' } as Record<string, string>)[m] ?? m);
+
 export function Recommendation({ run }: { run: any }) {
   const r = run?.result?.recommendation;
   if (!r) return null;
@@ -110,7 +116,7 @@ export function Recommendation({ run }: { run: any }) {
   return (
     <div className={`rounded-xl border p-3 ${tone === 'success' ? 'border-success/40 bg-success/5' : tone === 'danger' ? 'border-danger/40 bg-danger/5' : 'border-warn/40 bg-warn/5'}`}>
       <p className="flex items-center gap-2 text-[12px]"><span className="eyebrow">Agent recommendation</span><Chip tone={tone}>{r.verdict === 'APPROVE' ? 'Approve' : r.verdict === 'DECLINE' ? 'Decline' : 'Review'}</Chip></p>
-      <p className="mt-1 text-sm leading-relaxed">{r.summary}</p>
+      <p className="mt-1 text-sm leading-relaxed">{plainSummary(r.summary)}</p>
       <p className="mt-1 text-[11px] text-muted-foreground">A decision that differs from the recommendation needs a reason; it is recorded as an override on the trail.</p>
     </div>
   );

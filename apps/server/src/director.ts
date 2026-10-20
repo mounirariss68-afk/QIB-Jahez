@@ -8,7 +8,7 @@
  */
 import { SCENARIO, type DirectorAction, type DirectorStep, type PersonaKey } from '@jahiz/domain';
 import { pool, tx } from './db.js';
-import { now, today } from './clock.js';
+import { now, today, isVirtual, setClock, persistClock, dohaAt } from './clock.js';
 import { activePolicy } from './policy.js';
 import { factsOf, recordPayment } from './core/connector.js';
 import { decide, startRun, resume, addActivity } from './engine/core.js';
@@ -81,13 +81,16 @@ export async function execute(action: DirectorAction, scenario: string, edge: Re
       }
       const r = await tx((c) => sendDue(c, { scenario })); return `${r.sent} sent, ${r.blocked} blocked`;
     }
-    case 'advance_clock': { const r = await advanceClock(action.days, { scenario }); return `Now ${today()}: ${r.scans} scan(s), ${r.sent} sent, ${r.blocked} blocked, ${r.timeouts} deadline(s), ${r.rechecks} re-check(s)`; }
+    case 'advance_clock': { const focus = (await owners(scenario, edge)).customers; const r = await advanceClock(action.days, { scenario, focus }); return `Now ${today()}: ${r.scans} scan(s), ${r.sent} sent, ${r.blocked} blocked, ${r.timeouts} deadline(s), ${r.rechecks} re-check(s)`; }
     case 'customer_upload': { const id = resolveId(edge, action.customer); const r = await tx((c) => receive(c, { channel: 'INAPP', customerId: id, body: 'Uploaded from QIB Mobile (demo)', attachments: [{ specimen: action.specimen as any }], assurance: 'APP_UPLOAD', scenario })); return `Upload received: ${r.documentIds.length} document(s), WF-06 run ${r.runId}`; }
     case 'customer_reply': { const id = resolveId(edge, action.customer); const r = await tx((c) => receive(c, { channel: 'INAPP', customerId: id, body: action.text, scenario })); return `Reply received (WF-06 run ${r.runId})`; }
     case 'customer_accept_offer': { const id = resolveId(edge, action.customer); await tx(async (c) => { const f = await factsOf({ c, actor: 'customer-app' }, id); await c.query(`INSERT INTO core.device_inbox (customer_id, channel, kind, at, subject, body, lang, meta) VALUES ($1,'INAPP','OUTGOING',$2,'One Click Finance','Offer accepted in the app',$3,'{"accepted":true}')`, [f.id, now(), f.lang]); await addActivity(c, { trigger: 'Customer app', action: `${id} accepted the offer`, result: 'Simulated disbursement', customer_id: id, scenario_key: scenario }); }); return 'Offer accepted'; }
     case 'email_in': { const id = resolveId(edge, action.customer); const f = await factsOf({ c: pool, actor: 'customer-app' }, id); const r = await tx((c) => receive(c, { channel: 'EMAIL', customerId: action.fromOther ? null : id, from: f.contact?.email ?? '', subject: action.subject, body: action.body, attachments: action.specimen ? [{ specimen: action.specimen as any }] : [], assurance: 'EMAIL', scenario })); return `E-mail received: ${r.documentIds.length} attachment(s), WF-06 run ${r.runId}`; }
     case 'decide': { const id = resolveId(edge, action.customer); const runId = await runWaitingFor(id, action.persona); if (!runId) return `Nothing is waiting on ${action.persona} for ${id}`; await tx((c) => decide(c, { runId, persona: action.persona, decision: action.decision, reason: action.reason, scenario: true })); return `${action.decision} by ${action.persona} (run ${runId})`; }
-    case 'employer_review': { await tx(async (c) => { const policy = await activePolicy(c); await buildPack(c, action.employer, policy, { scenario }); const anyCase = (await c.query(`SELECT k.id FROM layer.cases k JOIN core.employment em ON em.customer_id=k.customer_id WHERE em.employer_id=$1 AND k.state<>'CLOSED' ORDER BY k.id LIMIT 1`, [action.employer])).rows[0]; const open = (await c.query(`SELECT id FROM layer.runs WHERE workflow_id='WF-05' AND status='WAITING' AND payload->>'employerId'=$1`, [action.employer])).rows[0]; if (!open) await startRun(c, { caseId: anyCase?.id ?? null, workflowId: 'WF-05', title: `Employer review ${action.employer}`, title_ar: `مراجعة جهة العمل`, channel: 'SCENARIO', scenario, payload: { variant: 'UNAPPROVED', employerId: action.employer }, doneAtStart: ['route', 'plan', 'send', 'await', 'examine', 'check', 'apply', 'requalify', 'escalate'] }); }); return 'Pack built; waiting on Credit Policy'; }
+    case 'employer_review': { await tx(async (c) => { const policy = await activePolicy(c); const pack = await buildPack(c, action.employer, policy, { scenario }); const anyCase = (await c.query(`SELECT k.id FROM layer.cases k JOIN core.employment em ON em.customer_id=k.customer_id WHERE em.employer_id=$1 AND k.state<>'CLOSED' ORDER BY k.id LIMIT 1`, [action.employer])).rows[0]; const open = (await c.query(`SELECT id FROM layer.runs WHERE workflow_id='WF-05' AND status='WAITING' AND payload->>'employerId'=$1`, [action.employer])).rows[0];
+      // A review already waiting keeps its run; its recommendation is refreshed from the pack just built (the staff's reasons may have changed since it opened).
+      if (open) await c.query(`UPDATE layer.runs SET result = COALESCE(result, '{}'::jsonb) || jsonb_build_object('recommendation', $2::jsonb) WHERE id=$1`, [open.id, JSON.stringify({ verdict: pack.recommendation === 'APPROVE' ? 'APPROVE' : pack.recommendation === 'DECLINE' ? 'DECLINE' : 'REVIEW', summary: pack.narrative })]);
+      else await startRun(c, { caseId: anyCase?.id ?? null, workflowId: 'WF-05', title: `Employer review ${action.employer}`, title_ar: `مراجعة جهة العمل`, channel: 'SCENARIO', scenario, payload: { variant: 'UNAPPROVED', employerId: action.employer }, doneAtStart: ['route', 'plan', 'send', 'await', 'examine', 'check', 'apply', 'requalify', 'escalate'] }); }); return 'Pack built; waiting on Credit Policy'; }
     case 'decide_employer': { const run = (await pool.query(`SELECT id FROM layer.runs WHERE workflow_id='WF-05' AND status='WAITING' AND waiting_on_persona='credit' AND payload->>'employerId'=$1 ORDER BY id DESC LIMIT 1`, [action.employer])).rows[0]; if (!run) return 'No employer review is waiting'; await tx((c) => decide(c, { runId: run.id, persona: 'credit', decision: action.decision, reason: action.reason, scenario: true })); return `Employer ${action.decision.toLowerCase()} (run ${run.id})`; }
     case 'propose_policy': { const def = PARAM[action.key]; const r = await tx((c) => startRun(c, { caseId: null, workflowId: 'WF-18', title: `Policy change: ${def?.label ?? action.key}${action.segment ? ` (${SEGMENT_LABEL[action.segment as Segment]})` : ''}`, title_ar: 'تغيير السياسة', channel: 'SCENARIO', scenario, payload: { domain: action.domain, key: action.key, segment: action.segment, value: action.value, rationale: action.rationale, proposer: action.persona } })); return `Proposed (run ${r.id}); waiting on ${r.waiting_on_persona}`; }
     case 'approve_policy': { const run = (await pool.query(`SELECT id FROM layer.runs WHERE workflow_id='WF-18' AND status='WAITING' ORDER BY id DESC LIMIT 1`)).rows[0]; if (!run) return 'No policy change is waiting'; await tx((c) => decide(c, { runId: run.id, persona: action.persona, decision: 'APPROVED', scenario: true })); return `Approved by ${action.persona}`; }
@@ -131,6 +134,13 @@ async function owners(key: string, edge: Record<string, string>) {
 export async function startScenario(key: string) {
   const s = SCENARIO[key]; if (!s) throw new Error(`Unknown scenario ${key}`);
   await pool.query(`UPDATE layer.scenario_runs SET status='ABANDONED', finished_at=$1 WHERE status='RUNNING'`, [now()]);
+  // A scenario starts on the real day: an earlier run that advanced the virtual clock (S4's thirty days) must not age every other story.
+  // Outside the service window (a rehearsal at 23:00) the clock sits at 10:00 Doha today, so offers and notices go out now rather than "tomorrow 09:00".
+  let clockReset = false;
+  if (isVirtual()) { setClock(null); clockReset = true; }
+  const dohaHour = (now().getTime() / 3600_000 + 3) % 24;
+  if (dohaHour < 9 || dohaHour >= 19.5) { setClock(dohaAt(today(), '10:00')); clockReset = true; }
+  if (clockReset) { await persistClock(); invalidateHealth(); }
   const edge = await edgeMap();
   const o = await owners(key, edge);
   let restored: string[] = [];
@@ -143,9 +153,10 @@ export async function startScenario(key: string) {
     restored = await restoreOwners(c, customers, employers, { scenario: key, reason: `${dirty.length} record(s) had moved on since the seed` });
   });
   if (restored.length) invalidateHealth();
+  if (clockReset) await tx((c) => addActivity(c, { trigger: `Director ${key}`, agent: null, action: 'Virtual clock returned to today', result: `The scenario starts on ${today()}${isVirtual() ? ' at 10:00 Doha (outside the service window now)' : ''}`, scenario_key: key }));
   const r = (await pool.query(`INSERT INTO layer.scenario_runs (key, status, step_index, started_at) VALUES ($1,'RUNNING',0,$2) RETURNING *`, [key, now()])).rows[0];
   const steps = await Promise.all(s.steps.map(async (st) => ({ ...st, screenResolved: await resolveScreen(st.screen, edge) })));
-  return { run: r, scenario: { ...s, steps }, edge, restored };
+  return { run: r, scenario: { ...s, steps }, edge, restored, clockReset };
 }
 
 /** Steps a person in the room can do by hand instead of the Director: the customer on the phone, or the decider in the bank pane. */

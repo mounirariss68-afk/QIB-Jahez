@@ -16,6 +16,8 @@ export type Gen = {
 export type Draft = {
   id: string; isQatari: boolean; gender: 'M' | 'F'; nameEn: string; nameAr: string; dob: string; nationality: string; segment: Segment; privateBanking: boolean; rmId: string | null; status: string; segmentTag: string | null;
   lang: 'en' | 'ar'; joined: string; basic: number; allowances: number; social: number; total: number; employerId: string | null; employerRaw: string | null; salaryBank: string;
+  /** Joining date at the current employer (default three years ago) and, for a recent job change, the employer the earlier salary credits came from. */
+  since?: string; previousEmployerId?: string | null;
   qid: { number: string; issued: string; expires: string }; passport: { number: string; issued: string; expires: string } | null;
   mobile: string; email: string; app: boolean; push: boolean; marketing: boolean; optouts: string[]; dnc: boolean;
   credits: { month: string; amount: number; reason?: string }[]; current: boolean; savings: number; deposits: number;
@@ -121,7 +123,7 @@ export function generateDrafts(policy: Policy, today: string, seed = policy.num(
         else { const m = rng.pick(months6.slice(0, 5)); d.credits.find((c) => c.month === m)!.amount = rng.round(d.total * (0.3 + rng.next() * 0.35), 50); }
         return true;
       }
-      // DEMO-E-047's staff are the fourteen named edge-case customers only (EC05 + E047_EXTRA_IDS), so the leverage scenario counts exactly fourteen.
+      // DEMO-E-047's staff are the fourteen named edge-case customers only (EC03 + EC05 + E047_EXTRA_IDS), so the leverage scenario counts exactly fourteen.
       case 'R02': { if (rng.chance(0.33)) { d.employerId = null; d.employerRaw = rng.chance(0.5) ? null : rng.pick(employers).name_en; } else { const e = rng.pick(unapprovedEmployers); d.employerId = e.id; } return true; }
       case 'R03': { const cap = policy.num(d.isQatari ? 'capQatari' : 'capResident'); const remaining = rng.int(24, 60); const repayable = Math.round(cap * (1 + rng.next() * 0.1)); d.facilities = [{ product: d.isQatari ? 'HOME' : 'PERSONAL', principal: Math.round(repayable * 0.9), outstanding: Math.round(repayable / 1.06), repayable, instalment: Math.min(Math.round(repayable / remaining), Math.round(((d.isQatari ? d.basic + d.social : d.total) * policy.num(d.isQatari ? 'dbrQatari' : 'dbrResident')) / 100) - 200), start: addMonths(today, -12), maturity: addMonths(today, remaining), dpd: 0, dpdSince: null, late6m: 0, irregular: false }]; return true; }
       case 'R04': { const lim = (d.total * policy.num('standingOrderLimitPct')) / 100; d.sos.push({ type: 'FI', name: rng.pick(['Doha Bank', 'Commercial Bank', 'Dukhan Bank', 'Masraf Al Rayan', 'QNB']), amount: rng.round(lim * (1.1 + rng.next() * 0.6), 50) }); return true; }
@@ -167,8 +169,9 @@ export function materialise(drafts: Draft[], employers: any[], rms: any[], today
     if (d.passport) g.documents.push({ customer_id: d.id, type: 'PASSPORT', number: d.passport.number, issued_on: d.passport.issued, expires_on: d.passport.expires, verified_on: d.passport.issued, source: 'ONBOARDING', current: true, image_ref: null });
     g.contacts.push({ customer_id: d.id, mobile: d.mobile, email: d.email, address_en: 'Doha, Qatar (demo)', address_ar: 'الدوحة، قطر', app_registered: d.app, push_enabled: d.app && d.push, last_app_login: d.app ? addDays(today, -(Number(d.id.slice(-2)) % 9) - 1) : null });
     g.consents.push({ customer_id: d.id, marketing_consent: d.marketing, marketing_since: d.marketing ? addMonths(today, -14) : null, channel_optouts: d.optouts, dnc: d.dnc, dnc_since: d.dnc ? addMonths(today, -3) : null, dnc_reason: d.dnc ? 'Customer written request' : null, dnc_until: null, bureau_consent_on: addMonths(today, -14) });
-    g.employment.push({ customer_id: d.id, employer_id: d.employerId, employer_name_raw: d.employerRaw, job_title: 'Officer', since: addMonths(today, -36), salary_basic: d.basic, salary_allowances: d.allowances, social_allowance: d.social, salary_total: d.total, salary_certificate_on: null, salary_bank: d.salaryBank });
-    for (const c of d.credits) if (c.amount > 0 || c.reason) g.credits.push({ customer_id: d.id, month: c.month, amount: c.amount, source_tag: c.amount > 0 ? 'SALARY' : 'GAP', credited_on: `${c.month}-25`, employer_ref: d.employerId ?? d.employerRaw ?? null, explained_reason: c.reason ?? null });
+    const since = d.since ?? addMonths(today, -36);
+    g.employment.push({ customer_id: d.id, employer_id: d.employerId, employer_name_raw: d.employerRaw, job_title: 'Officer', since, salary_basic: d.basic, salary_allowances: d.allowances, social_allowance: d.social, salary_total: d.total, salary_certificate_on: null, salary_bank: d.salaryBank });
+    for (const c of d.credits) if (c.amount > 0 || c.reason) g.credits.push({ customer_id: d.id, month: c.month, amount: c.amount, source_tag: c.amount > 0 ? 'SALARY' : 'GAP', credited_on: `${c.month}-25`, employer_ref: (`${c.month}-25` < since ? d.previousEmployerId ?? d.employerId : d.employerId) ?? d.employerRaw ?? null, explained_reason: c.reason ?? null });
     if (d.current) g.accounts.push({ customer_id: d.id, type: 'CURRENT', iban: `QA00DEMO${d.id.replace(/\D/g, '').padStart(18, '0')}`, opened_on: d.joined, status: 'ACTIVE', last_txn_on: addDays(today, -3), balance: Math.round(d.total * 0.4) });
     else if (d.status === 'DORMANT') g.accounts.push({ customer_id: d.id, type: 'CURRENT', iban: `QA00DEMO${d.id.replace(/\D/g, '').padStart(18, '0')}`, opened_on: d.joined, status: 'DORMANT', last_txn_on: addMonths(today, -14), balance: 120 });
     g.accounts.push({ customer_id: d.id, type: 'SAVINGS', iban: `QA00DEMS${d.id.replace(/\D/g, '').padStart(18, '0')}`, opened_on: d.joined, status: 'ACTIVE', last_txn_on: addDays(today, -20), balance: d.savings });

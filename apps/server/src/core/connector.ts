@@ -38,7 +38,7 @@ export type FullFacts = CustomerFacts & {
   row: CustomerRow; nameEn: string; nameAr: string; lang: 'en' | 'ar'; rmId: string | null; rimNo: string;
   contact: { mobile: string; email: string; app_registered: boolean; push_enabled: boolean; last_app_login: string | null } | null;
   consent: { marketing_consent: boolean; channel_optouts: string[]; dnc: boolean; dnc_reason: string | null };
-  qidNumber: string | null; passportNumber: string | null; employerName: string | null; salaryBank: string; deposits: number; cardRestricted: boolean;
+  qidNumber: string | null; passportNumber: string | null; employerName: string | null; employedSince: string | null; salaryBank: string; deposits: number; cardRestricted: boolean;
 };
 
 const group = <T extends { customer_id: string }>(rows: T[]) => { const m = new Map<string, T[]>(); for (const r of rows) { const a = m.get(r.customer_id); if (a) a.push(r); else m.set(r.customer_id, [r]); } return m; };
@@ -75,7 +75,7 @@ export async function loadFacts(ctx: Ctx, ids?: string[]): Promise<Map<string, F
       basic: e?.salary_basic ?? 0, allowances: e?.salary_allowances ?? 0, socialAllowance: e?.social_allowance ?? 0, salaryTotal: e?.salary_total ?? 0,
       salaryCredits: cr.filter((x) => x.source_tag === 'SALARY').map((x) => ({ month: x.month, amount: x.amount })),
       explainedGaps: cr.filter((x) => x.explained_reason).map((x) => x.month),
-      employerId: e?.employer_id ?? null, employerStatus: (er?.approval_status as EmployerStatus) ?? null, employerName: er?.name_en ?? e?.employer_name_raw ?? null, salaryBank: e?.salary_bank ?? 'QIB',
+      employerId: e?.employer_id ?? null, employerStatus: (er?.approval_status as EmployerStatus) ?? null, employerName: er?.name_en ?? e?.employer_name_raw ?? null, employedSince: e?.since ?? null, salaryBank: e?.salary_bank ?? 'QIB',
       qidExpiry: qid?.expires_on ?? null, passportExpiry: pp?.expires_on ?? null, qidNumber: qid?.number ?? null, passportNumber: pp?.number ?? null,
       hasCurrentAccount: (ga.get(r.id) ?? []).some((a: any) => a.type === 'CURRENT' && a.status === 'ACTIVE'),
       facilities: (gf.get(r.id) ?? []).map((x: any) => ({ product: x.product, instalment: x.instalment, outstanding: x.outstanding, repayable: x.repayable, dpd: x.dpd, late6m: x.late_payments_6m, irregular: x.schedule_irregular })),

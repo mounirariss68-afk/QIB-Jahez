@@ -518,7 +518,7 @@ Both comparisons are made on one basis — principal — by converting the repay
 
 **Eligibility mix.** 35% eligible (840) [Q]; 1,560 fall-outs carrying 1–3 reasons each (25% carry two or more, 8% three or more — the overlap matters for the dashboard). Reason frequencies follow **QIB's rank order** with a decaying weight so that rank 1 is the most frequent and rank 20 the least (illustratively 22% · 15% · 11% · 8% · 6% · 5.5% · 5% · 4.5% · 4% · 3.5% · 3% · 2.5% · 2.2% · 2% · 1.6% · 1.3% · 1% · 0.8% · 0.6% · 0.5% of fall-out incidences). The resulting class split is *derived*, and the dashboard shows it; we do not author "X% curable".
 
-**Employers.** ~120: 70% approved (government, semi-government, listed companies, large private), 20% unapproved (new or small private), 10% missing on customer records (migration gap). Employer DEMO-E-047 has 14 QIB-salaried staff and is under review — the leverage case.
+**Employers.** ~120: 70% approved (government, semi-government, listed companies, large private), 20% unapproved (new or small private), 10% missing on customer records (migration gap). Employer DEMO-E-047 has 14 QIB-salaried staff (edge case 3, edge case 5 and twelve more) and is under review — the leverage case.
 
 **Documents.** ~40 pre-rendered **specimen** images shipped with the app (QID front/back, passport data page with a valid MRZ for the synthetic data, salary certificates on fictional letterheads, HR letters, liability letters, one bank-statement page), each watermarked "SPECIMEN · SYNTHETIC · DEMO" and each carrying its fields in metadata so the Offline examiner can read them. Four are deliberately wrong (expired copy, name mismatch, different person, unreadable).
 
@@ -526,9 +526,9 @@ Both comparisons are made on one basis — principal — by converting the repay
 
 1. Mass resident, QID expired 61 days ago; the T0 and T+30 notices (push, then in-app) went unanswered; the T+60 e-mail goes today; if unanswered, a contact-centre call task opens and the T+90 restriction proposal reaches the Supervisor in 29 days.
 2. Mass resident, QID expired 8 days ago; the T0 push went the day after expiry; uploads the renewed QID in app today → extraction 0.97 → one-click check → record updated → re-qualified → One Click push (simulated).
-3. High Value resident, salary missing in July (unpaid leave) → certificate + HR letter → explained gap → Credit Policy accepts → eligible.
+3. High Value resident who changed jobs: the month between the two jobs had no salary (R01) and the new employer DEMO-E-047 is not yet approved (R02) → HR letter from the new employer → explained gap (job change under 60 days) → Credit Policy accepts → still not eligible on R02 → the case follows the employer review (case 5) → eligible when the employer is approved.
 4. Mass resident, salary moved to another bank since May; marketing consent on file → the service request goes, then a separate salary-transfer offer → accepted → case parks `cured-awaiting-history` with a six-month re-check.
-5. Employer DEMO-E-047 unapproved with 14 QIB-salaried staff → Muwathiq pack → Credit approves → 14 customers re-qualified in one action.
+5. Employer DEMO-E-047 unapproved with 14 QIB-salaried staff (case 3 among them) → Muwathiq pack → Credit approves → 14 customers re-qualified in one action.
 6. 60 records with employer missing (migration gap) → bulk request → mixed replies.
 7. HNWI client upgraded to Tamayuz last month, after the Mass notice sequence had been scheduled → at send time Hami blocks the queued SMS (no SMS for HNWI) and the queued push (RM approval required) → RM brief → RM collects the scan → checker approves.
 8. VVIP Private Banking client, passport expiring in 40 days (pre-expiry watch) → RM-only; agent drafts the brief; a restriction would need the Head of Retail Credit with the RM; the case shows "no automated contact".
@@ -560,7 +560,7 @@ Six, each a different shape, always with Reset. Each runs as an action sequence 
 | # | Scenario | Shape | What the room sees |
 |---|---|---|---|
 | S1 | **QID renewed in a day** (case 2) | happy path | T0 notice → in-app upload → extraction → checker one-click → record changes → re-qualified → One Click push rendered as the customer would see it |
-| S2 | **New job, new employer** (cases 3 + 5) | bank action with leverage | Salary gap explained → employer pack → one Credit approval re-qualifies fourteen people |
+| S2 | **New job, new employer** (cases 3 + 5, one story) | bank action with leverage | Job-change gap explained and accepted, offer still blocked by the unapproved employer → employer pack → one Credit approval re-qualifies fourteen people, the customer among them |
 | S3 | **The RM's client** (cases 7 + 17) | refusal | Hami blocks the queued SMS and push to a client who became Tamayuz after scheduling, and says why; RM brief; a Mass customer opts out and the offer push is blocked while the service e-mail goes |
 | S4 | **Nobody answers / wrong document** (cases 1 + 18) | escalation and exception | Attempts exhausted → restriction proposed to the Supervisor, who decides with a reason; a different-person document is rejected and noted |
 | S5 | **The collections boundary** (cases 14 + 15) | boundary | Early-arrears reminders inside the cap; payment; cooling period; the 45-DPD card hands over and the One Click push is blocked |
