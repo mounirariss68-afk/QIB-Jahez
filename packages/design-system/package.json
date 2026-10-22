@@ -10,6 +10,7 @@
     "./layout": "./src/components/layout/index.tsx",
     "./agent": "./src/agent/index.tsx",
     "./archetypes": "./src/components/archetypes/index.tsx",
+    "./viz": "./src/viz/index.tsx",
     "./components/*": "./src/components/*.tsx",
     "./lib/*": "./src/lib/*.tsx",
     "./hooks/*": "./src/hooks/*.tsx"

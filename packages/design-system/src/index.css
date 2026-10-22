@@ -10,6 +10,7 @@
  * relative to this file, so it points at this package's components whether it
  * runs in the design system's own preview or inside a consuming app/sandbox. */
 @source "./components";
+@source "./viz";
 
 @custom-variant dark (&:is(.dark *));
 

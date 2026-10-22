@@ -7,7 +7,7 @@ import { bump, post, useApi } from '../lib/api';
 import { date, dateTime, maskQid, month, num, qar, title } from '../lib/format';
 import { useApp, useFlash } from '../app/state';
 import { TrailList, Messages, Proposals, Decide, Recommendation } from '../app/case';
-import { Btn, Chip, ClassChip, Empty, Hero, Kv, Note, ReasonChip, Ref, Screen, SegChip, SourceStamp, StatusChip, Table, Tabs, Select, PERSONA_SHORT, TABS_CUSTOMERS } from '../app/ui';
+import { Btn, Chip, ClassChip, Empty, Hero, Kv, Note, ReasonChip, Ref, Screen, SegChip, SourceStamp, StatusChip, Table, Tabs, Select, PERSONA_SHORT } from '../app/ui';
 
 const parseParam = (p: string | null) => { const o: Record<string, string> = {}; if (!p) return o; if (!p.includes('=')) return { id: p }; for (const kv of p.split('&')) { const [k, v] = kv.split('='); o[k] = decodeURIComponent(v ?? ''); } return o; };
 
@@ -25,9 +25,9 @@ function CustomerList({ init }: { init: Record<string, string> }) {
   const qs = new URLSearchParams({ q, segment, reason, cls, eligible, page: String(page), size: '40' }).toString();
   const { data, error } = useApi<any>(`/customers?${qs}`);
   const { data: reasons } = useApi<any>('/reasons');
-  if (persona?.scope?.metricsOnly) return <Screen hero={<Hero eyebrow="Customers" title="Metrics only" lede="The Data Steward sees field-level metrics and definitions; customer records are not in scope. Use Data health." />} tabs={TABS_CUSTOMERS}><Empty>Drill-downs show DEMO ids only, never a record.</Empty></Screen>;
+  if (persona?.scope?.metricsOnly) return <Screen hero={<Hero eyebrow="Customers" title="Metrics only" lede="The Data Steward sees field-level metrics and definitions; customer records are not in scope. Use Data health." />}><Empty>Drill-downs show DEMO ids only, never a record.</Empty></Screen>;
   return (
-    <Screen hero={<Hero eyebrow="Customers · the synthetic base" title={<>{num(data?.total)} customers{segment ? ` · ${title(segment)}` : ''}{reason ? ` · ${reason}` : ''}</>} lede="The eligibility shown is the last scan's result under the active policy; open a customer for the record, the twenty rules, the case, the messages, the documents and the trail." />} tabs={TABS_CUSTOMERS}>
+    <Screen hero={<Hero eyebrow="Customers · the synthetic base" title={<>{num(data?.total)} customers{segment ? ` · ${title(segment)}` : ''}{reason ? ` · ${reason}` : ''}</>} lede="The eligibility shown is the last scan's result under the active policy; open a customer for the record, the twenty rules, the case, the messages, the documents and the trail." />}>
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative"><Search className="pointer-events-none absolute start-3 top-2.5 h-4 w-4 text-muted-foreground" /><input className="input ps-9" placeholder="Name, DEMO id, RIM, employer" value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} /></div>
         <Select value={segment} onChange={(v) => { setSegment(v); setPage(0); }}><option value="">All segments</option><option value="VVIP">VVIP</option><option value="HNWI">HNWI</option><option value="HIGH_VALUE">High Value</option><option value="MASS">Mass</option></Select>
@@ -165,7 +165,7 @@ function EmployerList() {
   const rows = data ?? [];
   const totals = useMemo(() => ({ approved: rows.filter((e) => e.approval_status === 'APPROVED').length, blocked: rows.reduce((s, e) => s + e.blocked, 0) }), [rows]);
   return (
-    <Screen hero={<Hero eyebrow="Employers · the approved list" title={<>{num(rows.length)} employers on the register</>} lede="Salary-transfer finance needs an approved employer, and one Credit Policy approval re-qualifies every customer of that employer at once." />} tabs={TABS_CUSTOMERS}>
+    <Screen hero={<Hero eyebrow="Employers · the approved list" title={<>{num(rows.length)} employers on the register</>} lede="Salary-transfer finance needs an approved employer, and one Credit Policy approval re-qualifies every customer of that employer at once." />}>
       <StatRow><StatTile label="Approved" value={num(totals.approved)} /><StatTile label="Customers blocked by an employer" value={num(totals.blocked)} /><StatTile label="Under review" value={num(rows.filter((e) => e.approval_status === 'UNDER_REVIEW').length)} /><StatTile label="Unapproved with staff" value={num(rows.filter((e) => e.approval_status === 'UNAPPROVED' && e.staff > 0).length)} /></StatRow>
       <div className="flex flex-wrap gap-2"><input className="input" placeholder="Search employers" value={q} onChange={(e) => setQ(e.target.value)} /><Select value={status} onChange={setStatus}><option value="">All statuses</option><option value="APPROVED">Approved</option><option value="UNAPPROVED">Unapproved</option><option value="UNDER_REVIEW">Under review</option><option value="RESTRICTED">Restricted</option></Select></div>
       <Panel icon={<Building2 size={16} />} title="Register"><Table><thead><tr><th>Employer</th><th>Sector</th><th>Headcount</th><th>Status</th><th>QIB-salaried</th><th>Blocked customers</th><th>Review</th></tr></thead><tbody>{rows.map((e) => <tr key={e.id} className="clickable" onClick={() => go('employers', e.id)}><td><span className="block text-sm font-medium">{e.name_en}</span><span className="font-mono text-[11px] text-muted-foreground">{e.id}</span></td><td className="text-[12px]">{title(e.sector)}</td><td className="font-mono text-[12px]">{num(e.headcount)}</td><td><StatusChip status={e.approval_status === 'UNDER_REVIEW' ? 'UNDER_REVIEW_E' : e.approval_status} /></td><td className="font-mono">{e.staff}</td><td className="font-mono">{e.blocked ? <Chip tone="warn">{e.blocked}</Chip> : '—'}</td><td className="text-[12px]">{e.review_state ? <StatusChip status={e.review_state} /> : '—'}</td></tr>)}</tbody></Table></Panel>

@@ -1,85 +1,83 @@
-/** Overview — "Where do we stand on One Click readiness?" */
-import { Panel, PanelAction, StatRow, StatTile, PageColumns } from '@cognirise/atelier/layout';
-import { Activity, BarChart3, Building2, Clock, Layers, TrendingUp } from 'lucide-react';
-import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+/**
+ * Overview — "How ready is the base tonight, and what will move it?"
+ * The landing page of those who run the base. One hero carrying the
+ * readiness bar (the signature visual), three figures, the twenty reasons as
+ * bars in the person's words, the eligible count scan by scan, and the
+ * employers one approval would free. The inbox, the agents and the
+ * governance line are not here: the Inbox, How it works and the closing card
+ * carry them (SCREEN-DISCIPLINE rules 1, 2, 5).
+ */
+import { Panel, PanelAction, StatTile, PageColumns } from '@cognirise/atelier/layout';
+import { Columns, Dots, useGrow } from '@cognirise/atelier/viz';
+import { BarChart3, Building2, TrendingUp } from 'lucide-react';
 import { useApi } from '../lib/api';
-import { num, pct, qarShort, rel, title, dateShort } from '../lib/format';
+import { num, pct, qarShort, dateShort } from '../lib/format';
 import { useApp } from '../app/state';
-import { AgentTag, Chip, ClassChip, Clause, Empty, Hero, Screen, SEG, PERSONA_SHORT, CLASS_LABEL, Table, Ref, TABS_OVERVIEW } from '../app/ui';
+import { Chip, Empty, LandingHero, Screen, SEG, Table } from '../app/ui';
+import { ReadinessBar } from '../app/viz';
 
-const C = { primary: 'var(--color-primary)', accent: 'var(--color-accent)', muted: 'var(--color-muted-foreground)' };
+/** The reasons in two words, for a title. */
+const SHORT: Record<string, string> = { R01: 'Salary gaps', R02: 'unapproved employers', R03: 'exposure over the limit', R04: 'standing orders', R05: 'cautionary notes', R06: 'expired passports', R07: 'expired QIDs', R08: 'no current account' };
 
 export function Overview() {
   const { data, error } = useApi<any>('/overview', { poll: 15000 });
-  const { go, open, session, persona } = useApp();
+  const { go, session } = useApp();
+  const grow = useGrow();
   if (error) return <Empty>{error}</Empty>;
   if (!data) return <p className="p-6 text-sm text-muted-foreground">Loading…</p>;
   const h = data.health;
   const last = data.lastRun, prev = data.prevRun;
   const delta = last && prev ? last.eligible_count - prev.eligible_count : 0;
-  const reasons = h.byReason.filter((r: any) => r.incidences > 0);
+  const reasons = (h.byReason as any[]).filter((r) => r.incidences > 0);
+  const maxInc = Math.max(1, ...reasons.map((r) => r.incidences));
+  const topTwo = reasons.slice().sort((a, b) => b.incidences - a.incidences).slice(0, 2);
+  const topShare = Math.round(topTwo.reduce((s, r) => s + r.share, 0));
   const funnel = (data.funnel as any[]);
   const openCases = funnel.filter((f) => f.state !== 'CLOSED').reduce((s, f) => s + f.n, 0);
   const cured = funnel.filter((f) => f.close_code === 'CURED').reduce((s, f) => s + f.n, 0);
   const curable = h.curable.classA + h.curable.classB;
+  const trend = (data.trend as any[]).slice(-12);
+  const employers = (h.employers as any[]).slice(0, 6);
   return (
-    <Screen hero={<Hero eyebrow="One Click Finance · pre-approval readiness" title={<>{pct(h.eligibleRate)} of {num(h.customers)} customers are pre-approvable today</>} lede={<>{num(h.fallouts)} fall out; {num(curable)} of them ({pct((100 * curable) / Math.max(1, h.fallouts), 0)}) are curable — {num(h.curable.classA)} by asking the customer, {num(h.curable.classB)} by a decision inside the bank.</>}
-      actions={<div className="flex flex-wrap gap-2"><button type="button" className="pill-btn pill-btn-primary" onClick={() => go('scenarios')}>Run a scenario</button><button type="button" className="pill-btn pill-btn-ghost" onClick={() => go('inbox')}>What is waiting on me{session?.inbox ? ` (${session.inbox})` : ''}</button></div>}
-      feature={<div className="rounded-2xl border border-border/60 bg-card/60 p-4 text-sm"><p className="eyebrow">Last scan</p><p className="mt-1 text-2xl font-extrabold tabular-nums">{num(last?.eligible_count)} <span className="text-base font-medium text-muted-foreground">eligible</span></p><p className="text-[12px] text-muted-foreground">{last ? `${last.trigger} · ${dateShort(last.as_of)} · ${delta >= 0 ? '+' : ''}${delta} vs the previous scan` : '—'}</p></div>} />} tabs={TABS_OVERVIEW}>
-      <StatRow>
-        <StatTile label="Eligible rate" value={pct(h.eligibleRate)} state={<Chip>target 35%</Chip>} trend={{ direction: delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat', label: `${delta >= 0 ? '+' : ''}${delta} since the previous scan`, sentiment: delta > 0 ? 'good' : delta < 0 ? 'bad' : 'neutral' }} />
+    <Screen hero={
+      <LandingHero eyebrow="One Click Finance · readiness tonight"
+        title={<>Tonight {num(h.eligible)} of {num(h.customers)} customers can be pre-approved, and {num(curable)} more are one document or one decision away</>}
+        meta={<>{pct(h.eligibleRate)} against the 35% target · {num(h.curable.classA)} need one document from the customer, {num(h.curable.classB)} one decision inside the bank · {num(h.fallouts - curable)} are out by policy or at the collections boundary</>}
+        actions={<><button type="button" className="pill-btn pill-btn-primary" onClick={() => go('inbox')}>What is waiting on me{session?.inbox ? ` (${session.inbox})` : ''}</button><button type="button" className="pill-btn pill-btn-ghost" onClick={() => go('health')}>Data health</button></>}>
+        <ReadinessBar h={h} onHero />
+      </LandingHero>}>
+      <div className="rounded-xl glass-l2 p-3"><div className="grid gap-3 sm:grid-cols-3">
         <StatTile label="Open cases" value={num(openCases)} trend={{ direction: 'flat', label: `${num(cured)} cured so far · ${num(data.today.cured)} today`, sentiment: 'good' }} />
-        <StatTile label="Today's outreach" value={`${num(data.today.sent)} sent`} trend={{ direction: 'flat', label: `${num(data.today.due)} due · ${num(data.today.inbound)} inbound`, sentiment: 'neutral' }} />
-        <StatTile label="Offers handed off" value={qarShort(data.today.offered)} trend={{ direction: 'up', label: `${num(data.today.updates)} record updates applied today`, sentiment: 'good' }} />
-      </StatRow>
+        <StatTile label="Outreach today" value={`${num(data.today.sent)} sent`} trend={{ direction: 'flat', label: `${num(data.today.due)} due · ${num(data.today.inbound)} inbound`, sentiment: 'neutral' }} />
+        <StatTile label="Offers handed to One Click" value={qarShort(data.today.offered)} trend={{ direction: delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat', label: last ? `${delta >= 0 ? '+' : ''}${delta} eligible since the previous scan` : '—', sentiment: delta > 0 ? 'good' : delta < 0 ? 'bad' : 'neutral' }} />
+      </div></div>
       <PageColumns aside={<>
-        <Panel icon={<Clock size={16} />} title="Waiting on people" action={<PanelAction onClick={() => go('inbox')}>Inbox</PanelAction>}>
-          <ul className="space-y-1.5 text-sm">{(data.waiting as any[]).sort((a, b) => b.n - a.n).map((w) => <li key={w.persona} className="flex items-center justify-between"><span>{PERSONA_SHORT[w.persona] ?? w.persona}</span><span className="font-mono text-[12px]">{w.n}</span></li>)}</ul>
-          <p className="mt-2 text-[11px] text-muted-foreground">Every record write and every restriction is a person's decision (POL-06). The agents prepare.</p>
+        <Panel icon={<Building2 size={16} />} title={employers.length ? `One approval would free ${num(employers[0].customers)} customers` : 'No employer is blocking customers'} action={<PanelAction onClick={() => go('employers')}>Employers</PanelAction>}>
+          <ul className="space-y-2.5 text-sm">{employers.map((e: any) => (
+            <li key={e.id}>
+              <button type="button" className="flex w-full items-center gap-2 text-start hover:text-primary" onClick={() => go('employers', e.id)}><span className="min-w-0 flex-1 truncate">{e.name ?? e.id}</span><span className="text-[11px] text-muted-foreground">{e.status === 'APPROVED' ? 'approved' : e.status === 'UNDER_REVIEW' ? 'under review' : 'not approved'}</span><span className="font-mono text-[12px]">{e.customers}</span></button>
+              <Dots total={e.customers} on={e.customers} size={7} tone={e.status === 'APPROVED' ? 'primary40' : 'primary'} className="mt-1" />
+            </li>))}</ul>
         </Panel>
-        <Panel icon={<Building2 size={16} />} title="Employers blocking the most customers" action={<PanelAction onClick={() => go('employers')}>Employers</PanelAction>}>
-          <ul className="space-y-1.5 text-sm">{h.employers.slice(0, 6).map((e: any) => <li key={e.id} className="flex items-center gap-2"><button type="button" className="min-w-0 flex-1 truncate text-start hover:text-primary" onClick={() => go('employers', e.id)}>{e.name ?? e.id}</button><Chip tone={e.status === 'APPROVED' ? 'success' : 'warn'}>{title(e.status)}</Chip><span className="font-mono text-[12px]">{e.customers}</span></li>)}{!h.employers.length ? <li className="text-muted-foreground">None.</li> : null}</ul>
-        </Panel>
-        <Panel icon={<Activity size={16} />} title="Activity" action={<PanelAction onClick={() => go('audit')}>Audit trail</PanelAction>}>
-          <ul className="space-y-2 text-[12px]">{(data.activity as any[]).slice(0, 8).map((a) => <li key={a.id} className="border-s-2 border-border/70 ps-2"><p className="flex flex-wrap items-center gap-1.5 text-muted-foreground"><span className="font-mono">{rel(a.at, session?.clock.now)}</span>{a.agent ? <AgentTag id={a.agent} showChip={false} size={16} /> : null}{a.clause ? <Clause id={a.clause} onClick={(id) => go('policies', id.split(' ')[0])} /> : null}</p><p>{a.action}</p><p className="text-muted-foreground">→ {a.result}</p>{a.case_ref ? <button type="button" className="font-mono text-primary" onClick={() => open(`case:${a.case_ref}`)}>{a.case_ref}</button> : null}</li>)}</ul>
+        <Panel icon={<TrendingUp size={16} />} title={trend.length > 1 ? `${num(trend[trend.length - 1].eligible_count - trend[0].eligible_count) } more eligible since ${dateShort(trend[0].as_of)}` : 'Eligible count by scan'}>
+          <Columns values={trend.map((t) => t.eligible_count)} labels={trend.map((t) => dateShort(t.as_of).replace(/ \d{4}$/, ''))} height={96} format={(v) => `${num(v)} eligible`} markLast />
+          <p className="mt-1.5 text-[11px] text-muted-foreground">Every column is a real scan of the whole base.</p>
         </Panel>
       </>}>
-        <Panel icon={<BarChart3 size={16} />} title="Why customers fall out — the twenty reasons in QIB's rank order" action={<PanelAction onClick={() => go('health')}>Data health</PanelAction>}>
-          <div style={{ height: Math.max(260, reasons.length * 22) }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={reasons} layout="vertical" margin={{ left: 8, right: 24, top: 4, bottom: 4 }}>
-                <CartesianGrid horizontal={false} strokeOpacity={0.15} />
-                <XAxis type="number" tick={{ fontSize: 11 }} stroke={C.muted} />
-                <YAxis type="category" dataKey="code" width={44} tick={{ fontSize: 11, fontFamily: 'ui-monospace, monospace' }} stroke={C.muted} />
-                <Tooltip formatter={(v: any, _n: any, p: any) => [`${v} customers · ${p.payload.share}% of incidences`, `${p.payload.code} ${p.payload.label} · class ${p.payload.cls}`]} contentStyle={{ fontSize: 12, borderRadius: 10 }} />
-                <Bar dataKey="incidences" fill={C.primary} radius={[0, 6, 6, 0]} onClick={(d: any) => go('customers', `reason=${d.code}`)} cursor="pointer" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">A customer can carry several reasons: {num(h.multiReason.two)} carry two, {num(h.multiReason.threePlus)} three or more. Click a bar to list the customers.</p>
+        <Panel icon={<BarChart3 size={16} />} title={topTwo.length === 2 ? `${SHORT[topTwo[0].code] ?? topTwo[0].label} and ${SHORT[topTwo[1].code] ?? topTwo[1].label.toLowerCase()} cause ${topShare}% of the fall-outs` : 'Why customers fall out'} action={<PanelAction onClick={() => go('health')}>Data health</PanelAction>}>
+          <ul className="space-y-1.5">{reasons.map((r, i) => (
+            <li key={r.code}>
+              <button type="button" className="grid w-full grid-cols-[minmax(10rem,14rem)_1fr_4rem] items-center gap-3 text-start text-[13px] hover:text-primary" onClick={() => go('customers', `reason=${r.code}`)} title={`${r.code} · class ${r.cls} · ${r.share}% of incidences`}>
+                <span className="truncate">{r.label}</span>
+                <span className="h-2.5 w-full overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-primary transition-[width] duration-700 ease-out motion-reduce:transition-none" style={{ width: grow ? `${(r.incidences / maxInc) * 100}%` : '0%', transitionDelay: `${i * 25}ms` }} /></span>
+                <span className="text-end font-mono text-[12px] tabular-nums">{num(r.incidences)}</span>
+              </button>
+            </li>))}</ul>
+          <p className="mt-2 text-[11px] text-muted-foreground">In QIB's rank order. A customer can carry several reasons: {num(h.multiReason.two)} carry two, {num(h.multiReason.threePlus)} three or more. Click a reason to list the customers.</p>
         </Panel>
-        <div className="grid gap-4 md:grid-cols-2">
-          <Panel icon={<Layers size={16} />} title="By class — what it takes to cure">
-            <ul className="space-y-2">{h.byClass.map((c: any) => <li key={c.cls}><div className="flex items-center gap-2 text-sm"><ClassChip cls={c.cls} /><span className="flex-1">{CLASS_LABEL[c.cls]}</span><span className="font-mono text-[12px]">{num(c.cases)} · {pct(c.share, 0)}</span></div><div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${c.share}%` }} /></div></li>)}</ul>
-            <Table className="mt-3"><thead><tr><th>Segment</th><th>Customers</th><th>Eligible</th><th>Rate</th></tr></thead><tbody>{h.bySegment.map((s: any) => <tr key={s.segment} className="clickable" onClick={() => go('customers', `segment=${s.segment}`)}><td>{SEG[s.segment]}</td><td className="font-mono">{num(s.customers)}</td><td className="font-mono">{num(s.eligible)}</td><td className="font-mono">{pct(s.rate)}</td></tr>)}</tbody></Table>
-          </Panel>
-          <Panel icon={<TrendingUp size={16} />} title="Eligible count by scan">
-            <div style={{ height: 220 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={(data.trend as any[]).map((t) => ({ d: dateShort(t.as_of), eligible: t.eligible_count, rate: Math.round((1000 * t.eligible_count) / Math.max(1, t.customers_checked)) / 10 }))} margin={{ left: 0, right: 12, top: 8, bottom: 4 }}>
-                  <CartesianGrid strokeOpacity={0.15} vertical={false} /><XAxis dataKey="d" tick={{ fontSize: 11 }} stroke={C.muted} /><YAxis tick={{ fontSize: 11 }} stroke={C.muted} domain={['dataMin - 20', 'dataMax + 20']} /><Tooltip contentStyle={{ fontSize: 12, borderRadius: 10 }} />
-                  <Line type="monotone" dataKey="eligible" stroke={C.primary} strokeWidth={2} dot={{ r: 3 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-            <p className="text-[11px] text-muted-foreground">Every point is a real scan: the sixty days of history were replayed through the engine.</p>
-          </Panel>
-        </div>
-        <Panel icon={<Activity size={16} />} title="The agents, in one line each" action={<PanelAction onClick={() => go('agents')}>Team</PanelAction>}>
-          <div className="grid gap-2 sm:grid-cols-2 text-[12px]">
-            {[['raqib', 'scans the base nightly and opens one case per customer, classed A/B/C/D'], ['munadi', 'plans and sends the notices inside the window, one channel per attempt'], ['hami', 'checks every outbound message against POL-01/05/07/09 and blocks with the clause'], ['mustaqbil', 'reads every reply and upload and routes it'], ['fahis', 'reads the document and proposes the update with its confidence'], ['muhaddith', 'writes the approved update to the record through the connector'], ['muwathiq', 'builds the employer approval pack for Credit Policy'], ['muahil', 're-qualifies after every change and hands eligible customers to One Click'], ['munabbih', 'sends early-arrears reminders inside POL-05 and stops at the boundary'], ['dalil', 'answers from the same database, cites the clause, prepares actions']].map(([id, what]) => <p key={id} className="flex items-start gap-2"><AgentTag id={id} showChip={false} size={18} /><span className="text-muted-foreground">{what}</span></p>)}
-          </div>
-          {persona?.key === 'steward' ? <p className="mt-2 text-[11px] text-muted-foreground">As Data Steward you see metrics and rules; drill-downs show <Ref>DEMO-</Ref> ids only, never a record.</p> : null}
+        <Panel icon={<BarChart3 size={16} />} title={(() => { const best = (h.bySegment as any[]).slice().sort((a, b) => b.rate - a.rate)[0]; return best ? `${SEG[best.segment] ?? best.segment} customers are the readiest, at ${pct(best.rate)}` : 'Readiness by segment'; })()}>
+          <Table><thead><tr><th>Segment</th><th>Customers</th><th>Eligible</th><th>Rate</th></tr></thead><tbody>{h.bySegment.map((s: any) => <tr key={s.segment} className="clickable" onClick={() => go('customers', `segment=${s.segment}`)}><td>{SEG[s.segment]}</td><td className="font-mono">{num(s.customers)}</td><td className="font-mono">{num(s.eligible)}</td><td><span className="flex items-center gap-2"><span className="h-2 w-24 overflow-hidden rounded-full bg-muted"><span className="block h-full rounded-full bg-primary" style={{ width: `${s.rate}%` }} /></span><span className="font-mono text-[12px]">{pct(s.rate)}</span></span></td></tr>)}</tbody></Table>
+          <p className="mt-2 text-[11px] text-muted-foreground"><Chip>synthetic base</Chip> 2,400 customers in QIB's segment mix; every figure is computed by the same module the nightly scan runs.</p>
         </Panel>
       </PageColumns>
     </Screen>

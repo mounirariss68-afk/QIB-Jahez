@@ -90,9 +90,10 @@ export function Panel({
         className,
       )}
     >
-      <header className="flex items-center gap-2.5 px-5 py-4">
-        {icon ? <span className="shrink-0 text-primary">{icon}</span> : null}
-        <h2 className="min-w-0 truncate text-base font-semibold">{tr(title)}</h2>
+      {/* A title is a claim with a number in it, so it may run to two lines; it is clamped, never cut to one. */}
+      <header className="flex items-start gap-2.5 px-5 py-4">
+        {icon ? <span className="mt-0.5 shrink-0 text-primary">{icon}</span> : null}
+        <h2 className="min-w-0 line-clamp-2 text-base font-semibold leading-snug">{tr(title)}</h2>
         {action ? <div className="ms-auto shrink-0">{action}</div> : null}
       </header>
       <div className={cn('px-5 pb-5', bodyClassName)}>{children}</div>

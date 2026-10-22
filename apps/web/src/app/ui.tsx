@@ -3,14 +3,21 @@ import type { ReactNode } from 'react';
 import { DemoBanner, DemoReference, AgentAutonomyChip, AgentAvatar, type AgentAutonomy } from '@cognirise/atelier/archetypes';
 import { PageContainer, PageHero } from '@cognirise/atelier/layout';
 import { cn } from '@cognirise/atelier/lib/utils';
+import { REASONS } from '@jahiz/domain/reasons';
+import { ChevronRight } from 'lucide-react';
 import { initials } from '../lib/format';
 import { useApp } from './state';
+
+/** The reason's label, the person's words for it; the code travels in the hover. */
+export const REASON_LABEL: Record<string, string> = Object.fromEntries(REASONS.map((r) => [r.code, r.label]));
 
 export const AUTONOMY: Record<string, AgentAutonomy> = { A0: 'observe', A1: 'recommend', A2: 'assisted', A3: 'supervised', A4: 'autonomous' };
 export const AGENT_NAMES: Record<string, [string, string]> = { raqib: ['Raqib', 'رقيب'], munadi: ['Munadi', 'منادي'], mustaqbil: ['Mustaqbil', 'مستقبِل'], fahis: ['Fahis', 'فاحص'], muhaddith: ['Muhaddith', 'محدِّث'], muwathiq: ['Muwathiq', 'موثِّق'], muahil: ['Muahil', 'مؤهِّل'], munabbih: ['Munabbih', 'منبِّه'], hami: ['Hami', 'حامي'], dalil: ['Dalil', 'دليل'] };
 export const SEG: Record<string, string> = { VVIP: 'VVIP', HNWI: 'HNWI', HIGH_VALUE: 'High Value', MASS: 'Mass' };
 export const CLASS_LABEL: Record<string, string> = { A: 'Ask the customer', B: 'The bank must act', C: 'Not eligible by policy', D: 'Collections boundary' };
 export const CLASS_TONE: Record<string, string> = { A: 'is-primary', B: 'is-warn', C: '', D: 'is-danger' };
+export const NOTE_LABEL: Record<string, string> = { KYC_EXPIRED: 'KYC expired', SALARY_STOPPED: 'salary stopped', COURT_ATTACHMENT: 'court attachment', SANCTIONS: 'sanctions', FRAUD_AML: 'fraud / AML', LEGAL_HOLD: 'legal hold', DECEASED: 'deceased' };
+export const DOC_LABEL: Record<string, string> = { QID: 'QID', PASSPORT: 'passport', SALARY_CERT: 'salary certificate', HR_LETTER: 'HR letter', LIABILITY_LETTER: 'liability letter', BANK_STATEMENT: 'bank statement', SO_DECLARATION: 'standing-order declaration' };
 export const PERSONA_SHORT: Record<string, string> = { head: 'Head of Retail Credit', credit: 'Credit Policy', ops: 'Operations Officer', supervisor: 'Operations Supervisor', compliance: 'Compliance', rm: 'Relationship Manager', collections: 'Collections', steward: 'Data Steward' };
 
 const STATUS: Record<string, { tone: string; en: string }> = {
@@ -39,7 +46,10 @@ export function Chip({ children, tone, className, title }: { children: ReactNode
 export const Ref = ({ children }: { children: ReactNode }) => <span className="whitespace-nowrap"><DemoReference>{children}</DemoReference></span>;
 export function SegChip({ s }: { s: string | null | undefined }) { return s ? <Chip tone={s === 'VVIP' ? 'danger' : s === 'HNWI' ? 'warn' : s === 'HIGH_VALUE' ? 'primary' : undefined}>{SEG[s] ?? s}</Chip> : null; }
 export function ClassChip({ cls, long }: { cls: string | null | undefined; long?: boolean }) { return cls ? <span className={cn('mono-chip whitespace-nowrap', CLASS_TONE[cls])} title={CLASS_LABEL[cls]}>{long ? `${cls} · ${CLASS_LABEL[cls]}` : cls}</span> : null; }
-export function ReasonChip({ code, label }: { code: string; label?: string }) { return <span className="mono-chip whitespace-nowrap" title={label}>{code}</span>; }
+/** A reason as the person says it ("QID expired"); the code is the hover, never the text (SCREEN-DISCIPLINE rule 3). */
+export function ReasonChip({ code, label }: { code: string; label?: string }) { return <span className="word-chip whitespace-nowrap" title={code}>{label ?? REASON_LABEL[code] ?? code}</span>; }
+/** The class as a word ("ask the customer"), never a letter on a work surface. */
+export function ClassWord({ cls }: { cls: string | null | undefined }) { return cls ? <span className="text-muted-foreground" title={`class ${cls}`}>{CLASS_LABEL[cls]?.toLowerCase()}</span> : null; }
 export function Clause({ id, onClick }: { id: string | null | undefined; onClick?: (id: string) => void }) { return id ? <button type="button" onClick={() => onClick?.(id)} className="mono-chip is-primary hover:opacity-80">{id}</button> : null; }
 
 export function Person({ name, sub, size = 28 }: { name: string; sub?: ReactNode; size?: number }) {
@@ -101,6 +111,51 @@ export function RouteTabs({ tabs }: { tabs: RouteTab[] }) {
 export const TABS_OVERVIEW: RouteTab[] = [{ id: 'overview', label: 'Readiness', hint: 'How many customers are pre-approvable, and why the rest are not' }, { id: 'health', label: 'Data health', hint: "Raqib's field-level view of the data One Click depends on" }];
 export const TABS_CUSTOMERS: RouteTab[] = [{ id: 'customers', label: 'Customers', hint: 'The synthetic base, with each customer’s eligibility' }, { id: 'employers', label: 'Employers', hint: 'The approved-employer register' }];
 export const TABS_ENGINE: RouteTab[] = [{ id: 'agents', label: 'Agents', hint: 'The ten agents, their remit and autonomy' }, { id: 'workflows', label: 'Workflows', hint: 'The eighteen workflows, step by step' }, { id: 'triggers', label: 'Triggers & clock', hint: 'What starts the agents; fire a trigger or advance the virtual clock' }];
+/**
+ * The masthead of a work screen (SCREEN-COMPOSITION rule 4): one band, about
+ * 90px — an eyebrow, a headline that is a claim at 22px, one factual line,
+ * the figures as chips, the actions. Never the 56px island on a list.
+ */
+export function Masthead({ eyebrow, title, meta, figures, actions, children }: { eyebrow?: ReactNode; title: ReactNode; meta?: ReactNode; figures?: ReactNode; actions?: ReactNode; children?: ReactNode }) {
+  return (
+    <div className="rounded-2xl border border-border/70 bg-card/60 px-5 py-4">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+        <div className="min-w-0 flex-1">
+          {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
+          <h1 className="text-[22px] font-semibold leading-tight tracking-tight">{title}</h1>
+          {meta ? <p className="mt-1 text-[13px] text-muted-foreground">{meta}</p> : null}
+        </div>
+        {figures ? <div className="flex flex-wrap items-center gap-2">{figures}</div> : null}
+        {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+      </div>
+      {children ? <div className="mt-3">{children}</div> : null}
+    </div>
+  );
+}
+/**
+ * The hero of a landing page (Overview, a record): the island, 140–170px, a
+ * 28px claim, one factual line, the signature visual at full width under it
+ * and at most one featured figure. The 56px headline of the old island is gone.
+ */
+export function LandingHero({ eyebrow, title, meta, actions, feature, children }: { eyebrow?: ReactNode; title: ReactNode; meta?: ReactNode; actions?: ReactNode; feature?: ReactNode; children?: ReactNode }) {
+  const { director } = useApp();
+  if (director) return <Masthead eyebrow={eyebrow} title={title} meta={meta} actions={actions}>{children}</Masthead>;
+  return (
+    <section className="page-hero relative overflow-hidden rounded-2xl" style={{ paddingBlock: '1.1rem' }}>
+      <PageContainer className="relative">
+        <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-3">
+          <div className="min-w-0 flex-1">
+            {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
+            <h1 className="mt-1 max-w-[62rem] text-[26px] font-bold leading-[1.15] tracking-tight">{title}</h1>
+            {meta ? <p className="mt-1.5 text-[13px] opacity-80">{meta}</p> : null}
+          </div>
+          {feature || actions ? <div className="flex shrink-0 flex-col items-end gap-2">{feature}{actions ? <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div> : null}</div> : null}
+        </div>
+        {children ? <div className="mt-3">{children}</div> : null}
+      </PageContainer>
+    </section>
+  );
+}
 /** The page hero; while the Director runs it collapses to one band so the content a step points at is in view. */
 export function Hero(props: Parameters<typeof PageHero>[0]) {
   const { director } = useApp();
@@ -124,6 +179,25 @@ export function Tabs({ tabs, value, onChange }: { tabs: { id: string; label: Rea
   return (
     <div className="flex flex-wrap gap-1 rounded-full border border-border/70 bg-card/40 p-1">
       {tabs.map((t) => <button key={t.id} type="button" onClick={() => onChange(t.id)} className={cn('rounded-full px-3 py-1.5 text-xs font-medium transition', value === t.id ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>{t.label}{t.n !== undefined ? <span className="ms-1.5 opacity-70">{t.n}</span> : null}</button>)}
+    </div>
+  );
+}
+/** The one disclosure a work surface may carry (SCREEN-DISCIPLINE rule 4): the proof behind the work, closed until asked for. */
+export function Disclosure({ label, children, open, className }: { label: ReactNode; children: ReactNode; open?: boolean; className?: string }) {
+  return (
+    <details className={cn('group rounded-xl border border-border/60 bg-card/40', className)} open={open}>
+      <summary className="flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-[13px] font-medium text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden"><ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />{label}</summary>
+      <div className="space-y-5 border-t border-border/60 px-3 py-3">{children}</div>
+    </details>
+  );
+}
+/** One fact on a decision card: a label, the value in words, the picture under it. */
+export function Fact({ label, value, children, className }: { label: ReactNode; value?: ReactNode; children?: ReactNode; className?: string }) {
+  return (
+    <div className={cn('min-w-0 rounded-xl border border-border/60 bg-card/50 p-3', className)}>
+      <p className="text-[11px] text-muted-foreground">{label}</p>
+      {value ? <p className="mt-0.5 text-sm font-medium leading-snug">{value}</p> : null}
+      {children ? <div className="mt-2">{children}</div> : null}
     </div>
   );
 }

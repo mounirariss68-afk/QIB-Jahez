@@ -18,10 +18,13 @@ export function TitleBar({
   lens,
   utilities,
   user,
+  theme = true,
   className,
 }: {
   /** Wordmark or logo lockup. Links home. */
   brand: ReactNode;
+  /** The theme selector. An app that moves it into a demo or settings control passes false (MENU-DISCIPLINE: the title bar keeps to five). */
+  theme?: boolean;
   /** Global search. Any app with more than one collection of records should
    * carry it here — it is the fastest route to anything and its absence is
    * what makes a title bar feel empty. */
@@ -51,7 +54,7 @@ export function TitleBar({
       ) : null}
       <div className={cn('flex shrink-0 items-center gap-2 sm:gap-4', search ? 'ms-2 sm:ms-4' : 'ms-auto')}>
         {lens}
-        <ThemeModeToggle />
+        {theme ? <ThemeModeToggle /> : null}
         {utilities}
         {user}
       </div>

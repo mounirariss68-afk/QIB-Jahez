@@ -152,13 +152,13 @@ data.get('/inbox', async (req, res) => {
   if (p.scope.metricsOnly) return res.json({ approvals: [], tasks: [], unmatched: [] });
   const sc = scopeSql(p);
   const approvals = (await pool.query(`SELECT r.id AS run_id, r.workflow_id, r.title, r.title_ar, r.status, r.current_step, r.sla_due, r.result, r.payload, r.created_at, r.updated_at, a.action_type, a.step_key, a.created_at AS waiting_since,
-      k.ref AS case_ref, k.cls, k.state AS case_state, k.reasons, k.primary_reason, k.customer_id, cu.name_en, cu.name_ar, cu.segment,
+      k.ref AS case_ref, k.cls, k.state AS case_state, k.reasons, k.primary_reason, k.customer_id, k.opened_at, k.attempts, k.max_attempts, k.next_action_at, k.paused, cu.name_en, cu.name_ar, cu.segment,
       (SELECT COUNT(*)::int FROM layer.documents d WHERE d.case_id=k.id AND d.state IN ('PROPOSED','REVIEW','REJECT_RECOMMENDED')) AS documents
       FROM layer.runs r JOIN layer.approvals a ON a.run_id=r.id AND a.decision='PENDING' LEFT JOIN layer.cases k ON k.id=r.case_id LEFT JOIN core.customers cu ON cu.id=k.customer_id
       WHERE r.status IN ('WAITING','ESCALATED') AND r.waiting_on_persona=$1 AND (k.id IS NULL OR ${rebase(sc.sql, 1)}) ORDER BY a.created_at ASC LIMIT 300`, [p.key, ...sc.params])).rows;
   const tasks = (await pool.query(`SELECT t.*, k.ref AS case_ref, cu.name_en, cu.segment FROM layer.tasks t LEFT JOIN layer.cases k ON k.id=t.case_id LEFT JOIN core.customers cu ON cu.id=t.customer_id WHERE t.state='OPEN' AND t.assignee_persona=$1 ORDER BY t.due ASC LIMIT 300`, [p.key])).rows;
   const unmatched = p.key === 'ops' || p.key === 'supervisor' ? (await pool.query(`SELECT * FROM layer.inbound_messages WHERE customer_id IS NULL AND state<>'ARCHIVED' ORDER BY received_at DESC LIMIT 50`)).rows : [];
-  res.json({ approvals, tasks, unmatched });
+  res.json({ approvals, tasks, unmatched, now: now().toISOString() });
 });
 
 // ------------------------------------------------------------------ cases
@@ -177,10 +177,16 @@ data.get('/cases', async (req, res) => {
   const page = n(req.query.page, 0), size = Math.min(n(req.query.size, 50), 200);
   const sql = `FROM layer.cases k JOIN core.customers cu ON cu.id=k.customer_id WHERE ${where.join(' AND ')}`;
   const total = (await pool.query(`SELECT COUNT(*)::int n ${sql}`, params)).rows[0].n;
+  // Open cases come in the order they need a hand: the next step soonest first; closed ones by recency.
+  // A case handed to Collections or re-qualified has no step of ours pending, whatever date it still carries.
+  const stepAt = `CASE WHEN k.state IN ('HANDED_OVER','REQUALIFIED','CLOSED') THEN NULL ELSE k.next_action_at END`;
+  const order = open === '1' ? `${stepAt} ASC NULLS LAST, k.updated_at DESC` : 'k.updated_at DESC';
   const rows = (await pool.query(`SELECT k.*, cu.name_en, cu.name_ar, cu.segment, cu.is_qatari, (SELECT r.waiting_on_persona FROM layer.runs r WHERE r.case_id=k.id AND r.status IN ('WAITING','ESCALATED') ORDER BY r.id DESC LIMIT 1) AS waiting_on,
-      (SELECT r.waiting_event FROM layer.runs r WHERE r.case_id=k.id AND r.status='WAITING_EVENT' ORDER BY r.id DESC LIMIT 1) AS waiting_event ${sql} ORDER BY k.updated_at DESC LIMIT ${size} OFFSET ${page * size}`, params)).rows;
+      (SELECT r.waiting_event FROM layer.runs r WHERE r.case_id=k.id AND r.status='WAITING_EVENT' ORDER BY r.id DESC LIMIT 1) AS waiting_event ${sql} ORDER BY ${order} LIMIT ${size} OFFSET ${page * size}`, params)).rows;
   const counts = (await pool.query(`SELECT k.state, k.cls, COUNT(*)::int n FROM layer.cases k JOIN core.customers cu ON cu.id=k.customer_id WHERE ${sc.sql} GROUP BY 1,2`, sc.params)).rows;
-  res.json({ rows, total, page, size, counts });
+  const due = (await pool.query(`SELECT COUNT(*)::int n FROM layer.cases k JOIN core.customers cu ON cu.id=k.customer_id WHERE ${sc.sql} AND ${stepAt} IS NOT NULL AND ${stepAt} <= $${sc.params.length + 1}`, [...sc.params, now()])).rows[0].n;
+  const onPerson = (await pool.query(`SELECT COUNT(DISTINCT k.id)::int n FROM layer.cases k JOIN core.customers cu ON cu.id=k.customer_id JOIN layer.runs r ON r.case_id=k.id AND r.status IN ('WAITING','ESCALATED') WHERE ${sc.sql} AND k.state<>'CLOSED'`, sc.params)).rows[0].n;
+  res.json({ rows, total, page, size, counts, due, onPerson, now: now().toISOString() });
 });
 
 export async function caseDetail(ref: string) {
@@ -210,7 +216,16 @@ data.get('/cases/:ref', async (req, res) => {
   if (p.scope.metricsOnly || (p.scope.segments && !p.scope.segments.includes(k.segment)) || (p.scope.classes && !p.scope.classes.includes(k.cls)) || (p.scope.ownBook && k.rm_id !== personaRmId(p))) return res.status(403).json({ error: `${p.role} sees ${p.sees}` });
   const subject = { segment: k.segment, cls: k.cls, rmId: k.rm_id };
   const waiting = d.runs.find((r: any) => r.status === 'WAITING' || r.status === 'ESCALATED');
-  res.json({ ...d, can: {
+  // The facts the decision card draws: the expiry the restriction clock runs from, the salary months, the days past due, the twenty rules — read live, never copied into the case.
+  const policy = await activePolicy();
+  const f = await factsOf({ c: pool, actor: p.key }, k.customer_id).catch(() => null);
+  const q = f ? qualify(f, policy, today()) : null;
+  const facts = f && q ? {
+    qidExpiry: f.qidExpiry, passportExpiry: f.passportExpiry, employerId: f.employerId, employerName: f.employerName, employerStatus: f.employerStatus, salaryTotal: f.salaryTotal, salaryCredits: f.salaryCredits,
+    dpd: Math.max(0, ...f.facilities.map((x) => x.dpd), ...f.cards.map((x) => x.dpd)), notes: f.notes, eligible: q.eligible, amount: q.amount, checks: q.checks, inputs: q.inputs,
+  } : null;
+  const rules = { restrictionProposalDay: policy.num('restrictionProposalDay'), collectionsHandoffDpd: policy.num('collectionsHandoffDpd'), oneClickReviewConfidence: policy.num('oneClickReviewConfidence'), earlyArrearsMaxDpd: policy.num('earlyArrearsMaxDpd') };
+  res.json({ ...d, facts, rules, now: now().toISOString(), can: {
     decide: !!waiting && waiting.waiting_on_persona === p.key, send: allowed(p, 'SEND_REMINDER', subject), reschedule: allowed(p, 'RESCHEDULE', subject), pause: allowed(p, 'PAUSE_CASE', subject), resume: allowed(p, 'RESUME_CASE', subject),
     escalate: allowed(p, 'ESCALATE_TO_RM', subject), rerun: allowed(p, 'RERUN_QUALIFICATION', subject), close: allowed(p, 'CLOSE_UNRESPONSIVE', subject), restrict: allowed(p, 'PROPOSE_RESTRICTION', subject),
   } });
