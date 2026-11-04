@@ -328,7 +328,7 @@
 }
 
 /* ============================================================
-   Atelier brand layer.
+   CogniPulse brand layer.
    Signature pieces: the four-stop accent gradient, knob-driven
    glassmorphism (alpha-only color-mix over the token hues +
    backdrop blur), the fixed backdrop gradient + wallpaper layer,
@@ -337,7 +337,7 @@
    Every VALUE here comes from the `brand` block in tokens.json, so
    a client rebrand is a tokens edit, never a CSS edit. The
    STRUCTURE — alphas, blur radii, spacing, easing, the primitives
-   below — is identical in every Atelier app and must not be
+   below — is identical in every CogniPulse app and must not be
    customized per client.
    ============================================================ */
 
@@ -392,13 +392,11 @@
   --glass-card-alpha: var(--glass-l3-alpha);
   --glass-panel-alpha: var(--glass-l2-alpha);
   --glass-popover-alpha: 88%;
-  /* The hero island is the one surface that must hold the client's deep brand
-   * colour in BOTH themes, whatever is behind it. At 34% it could only do that
-   * where the backdrop happened to be dark already — over a light backdrop it
-   * came out as a pale wash carrying near-white text, which is unreadable. It
-   * is still glass (the backdrop moves through it, the blur and the sheen are
-   * unchanged); it is simply opaque enough to be the surface it claims to be.
-   * Changed 17 Sep 2026 on Tasama Ascend; belongs back in the template. */
+  /* The hero island must hold the client's deep brand colour in BOTH themes,
+   * whatever is behind it — so it is NOT one of the L1-L3 glass levels. At a
+   * low fill it only reads as the brand where the backdrop is already dark;
+   * over a light backdrop it becomes a pale wash carrying near-white text.
+   * Still glass: blur, sheen and backdrop movement are unchanged. */
   --glass-hero-alpha: 93%;
   --glass-hero-nested-alpha: 93%;
   --glass-card-border: hsl(var(--hero-background) / 0.12);
@@ -489,7 +487,7 @@
   --color-highlight: var(--brand-highlight-ink);
   --color-highlight-wash: var(--brand-highlight);
   --font-wordmark: var(--font-wordmark);
-  /* Atelier radii: sm chips 2px, cards 16px. */
+  /* CogniPulse radii: sm chips 2px, cards 16px. */
   --radius-sm: 2px;
   --radius-xl: calc(var(--radius) + 6px);
 }
@@ -760,7 +758,7 @@
   .mono-chip.is-success { color: var(--success); border-color: color-mix(in srgb, var(--success) 40%, transparent); }
   .mono-chip.is-warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
   .mono-chip.is-danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
-  /* Accent pill (Atelier's .plm-pill). */
+  /* Accent pill (CogniPulse's .plm-pill). */
   .accent-pill {
     display: inline-flex;
     align-items: center;
@@ -873,4 +871,26 @@
   .glass-panel, .glass-l2 { background-color: hsl(var(--card)); }
   .glass-l1 { background-color: hsl(var(--background)); }
   .page-hero { background: hsl(var(--background)); }
+}
+
+/* ------------------------------------------------------------ viz motion
+ * Used by @cognirise/cognipulse/viz. Motion runs once, on mount, and never under
+ * prefers-reduced-motion: the chart is complete at rest either way. */
+.viz-draw { stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset 900ms cubic-bezier(.2,.7,.2,1); }
+.viz-draw.is-drawn { stroke-dashoffset: 0; }
+.viz-pop { transform-box: fill-box; transform-origin: center; transform: scale(0); transition: transform 300ms cubic-bezier(.2,.9,.3,1.4); }
+.viz-pop.is-drawn { transform: scale(1); }
+.viz-ring { transition: stroke-dashoffset 700ms ease-out; }
+@keyframes viz-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes viz-grow-y { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes viz-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.viz-grow { transform-origin: left center; animation: viz-grow 700ms cubic-bezier(.2,.7,.2,1) both; }
+[dir="rtl"] .viz-grow { transform-origin: right center; }
+.viz-grow-y { transform-origin: center bottom; animation: viz-grow-y 700ms cubic-bezier(.2,.7,.2,1) both; }
+.viz-rise { animation: viz-rise 420ms cubic-bezier(.2,.7,.2,1) both; }
+/* Right-to-left: the charts mirror (time and order run right to left) and their text is flipped back so it reads normally. */
+:where([dir="rtl"]) .viz-svg { transform: scaleX(-1); direction: ltr; }
+:where([dir="rtl"]) .viz-svg text { transform-box: fill-box; transform-origin: center; transform: scaleX(-1); }
+@media (prefers-reduced-motion: reduce) {
+  .viz-draw, .viz-pop, .viz-ring, .viz-grow, .viz-grow-y, .viz-rise { animation: none !important; transition: none !important; stroke-dashoffset: 0 !important; transform: none !important; opacity: 1 !important; }
 }

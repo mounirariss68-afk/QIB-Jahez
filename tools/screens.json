@@ -1,0 +1,25 @@
+{
+  "base": "http://localhost:5078",
+  "routes": [
+    "/#/overview",
+    "/#/health",
+    "/#/inbox",
+    "/#/cases",
+    "/#/cases/DEMO-CASE-00001",
+    "/#/customers",
+    "/#/customers/DEMO-C-00002",
+    "/#/employers",
+    "/#/comms",
+    "/#/policies",
+    "/#/documents",
+    "/#/agents",
+    "/#/workflows",
+    "/#/audit",
+    "/#/scenarios",
+    "/#/settings",
+    "/#/triggers",
+    "/#/customer-app"
+  ],
+  "allow": [],
+  "skip": ["/#/audit", "/#/agents"]
+}

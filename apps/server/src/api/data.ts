@@ -14,6 +14,7 @@ import { factsOf, loadFacts } from '../core/connector.js';
 import { personaOf, scopeSql, rebase, allowed, personas, personaRmId } from './session.js';
 import { renderSpecimenSvg } from '../agents/specimens.js';
 import { graphStatus } from '../channels/graph.js';
+import { criteriaOf } from '../agents/muwathiq.js';
 
 export const data = Router();
 const n = (v: unknown, d = 0) => (v === undefined || v === null || v === '' ? d : Number(v));
@@ -126,8 +127,12 @@ data.get('/employers', async (req, res) => {
   if (status) { params.push(status); where.push(`e.approval_status=$${params.length}`); }
   const rows = (await pool.query(`SELECT e.*, (SELECT COUNT(*)::int FROM core.employment em WHERE em.employer_id=e.id) AS staff,
       (SELECT COUNT(*)::int FROM layer.cases k WHERE k.state<>'CLOSED' AND 'R02' = ANY(k.reasons) AND k.customer_id IN (SELECT customer_id FROM core.employment em WHERE em.employer_id=e.id)) AS blocked,
+      (SELECT COUNT(*)::int FROM layer.cases k WHERE k.state<>'CLOSED' AND array_length(k.reasons, 1) = 1 AND k.reasons[1] = 'R02' AND k.customer_id IN (SELECT customer_id FROM core.employment em WHERE em.employer_id=e.id)) AS only_this,
       (SELECT state FROM layer.employer_reviews r WHERE r.employer_id=e.id ORDER BY id DESC LIMIT 1) AS review_state
       FROM core.employers e WHERE ${where.join(' AND ')} ORDER BY blocked DESC, staff DESC, e.id LIMIT 200`, params)).rows;
+  // The five POL-03 §5.1 criteria per employer, drawn as segments on the register (the same function Muwathiq's pack uses).
+  const policy = await activePolicy();
+  for (const r of rows) r.criteria = criteriaOf(r, r.staff, policy).map((x) => ({ label: x.label, ok: x.ok, value: x.value, required: x.required }));
   res.json(rows);
 });
 data.get('/employers/:id', async (req, res) => {
@@ -189,6 +194,72 @@ data.get('/cases', async (req, res) => {
   res.json({ rows, total, page, size, counts, due, onPerson, now: now().toISOString() });
 });
 
+/**
+ * The Cases screen as lanes by where a case waits (29 Oct 2026): on a person
+ * (a run waits on someone's decision), on the customer (a notice is out),
+ * on a date (a re-check, a cooling period, the nightly scan), or done (closed,
+ * re-qualified, handed to Collections). Each lane's count, its first cases in
+ * the order they need a hand, and sixty days of the same lanes rebuilt from
+ * the case events and the approvals, for the cumulative flow.
+ */
+const ON_CUSTOMER = ['QUEUED', 'CONTACTED', 'AWAITING_REPLY', 'REMINDING'];
+const DONE = ['CLOSED', 'HANDED_OVER', 'REQUALIFIED'];
+data.get('/cases/board', async (req, res) => {
+  const p = personaOf(req);
+  if (p.scope.metricsOnly) return res.json({ lanes: [], flow: [], now: now().toISOString() });
+  const sc = scopeSql(p);
+  const params: unknown[] = [...sc.params]; const where: string[] = [sc.sql];
+  const cls = String(req.query.cls ?? ''), segment = String(req.query.segment ?? ''), q = String(req.query.q ?? '').trim(), reason = String(req.query.reason ?? '');
+  if (cls) { params.push(cls); where.push(`k.cls=$${params.length}`); }
+  if (segment) { params.push(segment); where.push(`cu.segment=$${params.length}`); }
+  if (reason) { params.push(reason); where.push(`$${params.length} = ANY(k.reasons)`); }
+  if (q) { params.push(`%${q}%`); where.push(`(k.ref ILIKE $${params.length} OR cu.name_en ILIKE $${params.length} OR cu.id ILIKE $${params.length})`); }
+  const size = Math.min(n(req.query.size, 25), 100);
+  const lane = `CASE WHEN k.state IN (${DONE.map((s) => `'${s}'`).join(',')}) THEN 'done' WHEN w.id IS NOT NULL THEN 'person' WHEN k.state IN (${ON_CUSTOMER.map((s) => `'${s}'`).join(',')}) THEN 'customer' ELSE 'date' END`;
+  const base = `FROM layer.cases k JOIN core.customers cu ON cu.id=k.customer_id
+    LEFT JOIN LATERAL (SELECT r.id, r.waiting_on_persona, r.sla_due, (SELECT a.created_at FROM layer.approvals a WHERE a.run_id=r.id AND a.decision='PENDING' ORDER BY a.id DESC LIMIT 1) AS waiting_since FROM layer.runs r WHERE r.case_id=k.id AND r.status IN ('WAITING','ESCALATED') ORDER BY r.id DESC LIMIT 1) w ON TRUE
+    WHERE ${where.join(' AND ')}`;
+  const counts = (await pool.query(`SELECT ${lane} AS lane, COUNT(*)::int n ${base} GROUP BY 1`, params)).rows as { lane: string; n: number }[];
+  const order: Record<string, string> = {
+    person: 'w.sla_due ASC NULLS LAST, k.updated_at ASC',
+    customer: 'k.next_action_at ASC NULLS LAST, k.updated_at ASC',
+    date: 'COALESCE(k.next_action_at, k.recheck_on::timestamptz) ASC NULLS LAST, k.updated_at ASC',
+    done: 'COALESCE(k.closed_at, k.updated_at) DESC',
+  };
+  const lanes = [];
+  for (const id of ['customer', 'person', 'date', 'done']) {
+    const rows = (await pool.query(`SELECT k.id, k.ref, k.customer_id, k.cls, k.state, k.close_code, k.paused, k.reasons, k.primary_reason, k.attempts, k.max_attempts, k.next_action_at, k.recheck_on, k.recheck_reason, k.opened_at, k.updated_at, k.closed_at, k.edge_key,
+        cu.name_en, cu.segment, w.waiting_on_persona AS waiting_on, w.sla_due, w.waiting_since ${base} AND ${lane}='${id}' ORDER BY ${order[id]} LIMIT ${size}`, params)).rows;
+    lanes.push({ id, n: counts.find((c) => c.lane === id)?.n ?? 0, rows });
+  }
+  // Sixty days of the lanes: a case's state on a day is the last case event by the end of that day; it waits on a person while an approval on one of its runs is pending.
+  const ids = (await pool.query(`SELECT k.id, k.opened_at ${base}`, params)).rows as { id: number; opened_at: string }[];
+  const flow: { day: string; counts: Record<string, number> }[] = [];
+  if (ids.length) {
+    const idList = ids.map((x) => x.id);
+    const events = (await pool.query(`SELECT case_id, at, to_state FROM layer.case_events WHERE case_id = ANY($1) ORDER BY case_id, at, id`, [idList])).rows as { case_id: number; at: string; to_state: string }[];
+    const waits = (await pool.query(`SELECT r.case_id, a.created_at, CASE WHEN a.decision='PENDING' THEN NULL ELSE COALESCE(a.decided_at, a.created_at) END AS ended FROM layer.approvals a JOIN layer.runs r ON r.id=a.run_id WHERE r.case_id = ANY($1)`, [idList])).rows as { case_id: number; created_at: string; ended: string | null }[];
+    const byCase = new Map<number, { at: number; s: string }[]>();
+    for (const e of events) { const l = byCase.get(e.case_id) ?? []; l.push({ at: new Date(e.at).getTime(), s: e.to_state }); byCase.set(e.case_id, l); }
+    const waitBy = new Map<number, { from: number; to: number }[]>();
+    for (const w of waits) { const l = waitBy.get(w.case_id) ?? []; l.push({ from: new Date(w.created_at).getTime(), to: w.ended ? new Date(w.ended).getTime() : Infinity }); waitBy.set(w.case_id, l); }
+    const end = now().getTime();
+    for (let i = 60; i >= 0; i--) {
+      const t = end - i * 86_400_000;
+      const c: Record<string, number> = { customer: 0, person: 0, date: 0, done: 0 };
+      for (const k of ids) {
+        if (new Date(k.opened_at).getTime() > t) continue;
+        const ev = byCase.get(k.id) ?? []; let s = 'DETECTED';
+        for (const e of ev) { if (e.at > t) break; s = e.s; }
+        const onPerson = (waitBy.get(k.id) ?? []).some((w) => w.from <= t && w.to > t);
+        c[DONE.includes(s) ? 'done' : onPerson ? 'person' : ON_CUSTOMER.includes(s) ? 'customer' : 'date'] += 1;
+      }
+      flow.push({ day: new Date(t).toISOString().slice(0, 10), counts: c });
+    }
+  }
+  res.json({ lanes, flow, now: now().toISOString() });
+});
+
 export async function caseDetail(ref: string) {
   const k = (await pool.query(`SELECT k.*, cu.name_en, cu.name_ar, cu.segment, cu.is_qatari, cu.language_pref FROM layer.cases k JOIN core.customers cu ON cu.id=k.customer_id WHERE k.ref=$1`, [ref])).rows[0];
   if (!k) return null;
@@ -248,7 +319,11 @@ data.get('/comms', async (req, res) => {
   const rows = (await pool.query(`SELECT m.*, cu.name_en, cu.name_ar, cu.segment, k.ref AS case_ref ${sql} ORDER BY COALESCE(m.sent_at, m.scheduled_for) DESC, m.id DESC LIMIT ${size} OFFSET ${page * size}`, params)).rows;
   const stats = (await pool.query(`SELECT m.status, COUNT(*)::int n ${sql} GROUP BY m.status`, params)).rows;
   const byChannel = (await pool.query(`SELECT m.channel, m.status, COUNT(*)::int n ${sql} GROUP BY 1,2`, params)).rows;
-  res.json({ rows, total, page, size, stats, byChannel, now: now().toISOString() });
+  // The screen's claim and Hami's blocks by rule, over the persona's whole scope whatever tab or filter is open.
+  const scopeFrom = `FROM layer.outreach_messages m JOIN core.customers cu ON cu.id=m.customer_id LEFT JOIN layer.cases k ON k.id=m.case_id WHERE ${sc.sql.replace(/k\.cls/g, "COALESCE(k.cls,'A')")}`;
+  const overall = (await pool.query(`SELECT m.status, COUNT(*)::int n ${scopeFrom} GROUP BY m.status`, sc.params)).rows;
+  const byBlock = (await pool.query(`SELECT COALESCE(m.block_reason, 'No reason recorded') AS reason, MIN(m.block_clause) AS clause, COUNT(*)::int n ${scopeFrom} AND m.status='BLOCKED' GROUP BY 1 ORDER BY n DESC`, sc.params)).rows;
+  res.json({ rows, total, page, size, stats, byChannel, overall, byBlock, now: now().toISOString() });
 });
 data.get('/comms/inbound', async (req, res) => {
   const rows = (await pool.query(`SELECT i.*, cu.name_en, cu.segment, k.ref AS case_ref FROM layer.inbound_messages i LEFT JOIN core.customers cu ON cu.id=i.customer_id LEFT JOIN layer.cases k ON k.id=i.case_id ORDER BY i.received_at DESC LIMIT 200`)).rows;
@@ -275,7 +350,8 @@ data.get('/documents/:id', async (req, res) => {
   const proposals = (await pool.query(`SELECT * FROM layer.proposed_updates WHERE document_id=$1 ORDER BY id`, [d.id])).rows;
   const run = (await pool.query(`SELECT r.id, r.status, r.waiting_on_persona, r.workflow_id, r.result FROM layer.runs r WHERE r.case_id=$1 AND r.status IN ('WAITING','ESCALATED') ORDER BY r.id DESC LIMIT 1`, [d.case_id])).rows[0] ?? null;
   const f = await factsOf({ c: pool, actor: 'fahis' }, d.customer_id);
-  res.json({ ...rest, specimen: source?.specimen ? { kind: source.specimen.kind, flaw: source.specimen.flaw, title: source.specimen.title, text: source.specimen.text } : null, hasImage: !!source?.image, proposals, run, record: { nameEn: f.nameEn, nameAr: f.nameAr, dob: f.dob, nationality: f.nationality, qidNumber: f.qidNumber, qidExpiry: f.qidExpiry, passportNumber: f.passportNumber, passportExpiry: f.passportExpiry, employerName: f.employerName, salaryTotal: f.salaryTotal }, can: { decide: !!run && run.waiting_on_persona === personaOf(req).key } });
+  const threshold = (await activePolicy()).num('oneClickReviewConfidence');
+  res.json({ ...rest, threshold, specimen: source?.specimen ? { kind: source.specimen.kind, flaw: source.specimen.flaw, title: source.specimen.title, text: source.specimen.text } : null, hasImage: !!source?.image, proposals, run, record: { nameEn: f.nameEn, nameAr: f.nameAr, dob: f.dob, nationality: f.nationality, qidNumber: f.qidNumber, qidExpiry: f.qidExpiry, passportNumber: f.passportNumber, passportExpiry: f.passportExpiry, employerName: f.employerName, salaryTotal: f.salaryTotal }, can: { decide: !!run && run.waiting_on_persona === personaOf(req).key } });
 });
 data.get('/documents/:id/image.svg', async (req, res) => {
   const d = (await pool.query(`SELECT source FROM layer.documents WHERE id=$1`, [n(req.params.id)])).rows[0];
@@ -309,7 +385,11 @@ data.get('/agents', async (_req, res) => {
   const sys = (await pool.query(`SELECT actor_id, act, COUNT(*)::int n, COUNT(*) FILTER (WHERE at >= $1)::int today FROM layer.trail WHERE actor_type='SYSTEM' GROUP BY 1,2`, [today0])).rows;
   const all = [...stats, ...sys];
   const recent = (await pool.query(`SELECT DISTINCT ON (actor_id) actor_id, at, summary FROM layer.trail WHERE actor_type IN ('AGENT','SYSTEM') ORDER BY actor_id, id DESC`)).rows;
-  res.json(AGENTS.map((a) => ({ ...a, stats: all.filter((s) => s.actor_id === a.id).map((s) => ({ act: s.act, total: s.n, today: s.today })), total: all.filter((s) => s.actor_id === a.id).reduce((x, s) => x + s.n, 0), todayTotal: all.filter((s) => s.actor_id === a.id).reduce((x, s) => x + s.today, 0), last: recent.find((r) => r.actor_id === a.id) ?? null, owner: a.owner })));
+  // Each agent's actions on each of the last seven days of the virtual clock (the columns in its profile).
+  const days = Array.from({ length: 7 }, (_, i) => new Date(Date.parse(today() + 'T00:00:00Z') - (6 - i) * 86400_000).toISOString().slice(0, 10));
+  const byDay = (await pool.query(`SELECT actor_id, to_char(at, 'YYYY-MM-DD') d, COUNT(*)::int n FROM layer.trail WHERE actor_type IN ('AGENT','SYSTEM') AND at >= $1 GROUP BY 1,2`, [days[0]])).rows;
+  const week = (id: string) => days.map((d) => ({ day: d, n: byDay.find((r) => r.actor_id === id && r.d === d)?.n ?? 0 }));
+  res.json(AGENTS.map((a) => ({ ...a, week: week(a.id), stats: all.filter((s) => s.actor_id === a.id).map((s) => ({ act: s.act, total: s.n, today: s.today })), total: all.filter((s) => s.actor_id === a.id).reduce((x, s) => x + s.n, 0), todayTotal: all.filter((s) => s.actor_id === a.id).reduce((x, s) => x + s.today, 0), last: recent.find((r) => r.actor_id === a.id) ?? null, owner: a.owner })));
 });
 data.get('/agents/:id/trail', async (req, res) => { res.json((await pool.query(`SELECT * FROM layer.trail WHERE actor_id=$1 ORDER BY id DESC LIMIT 100`, [req.params.id])).rows); });
 data.get('/workflows', async (_req, res) => {
@@ -357,7 +437,11 @@ data.get('/audit', async (req, res) => {
   const total = (await pool.query(`SELECT COUNT(*)::int n FROM layer.trail t WHERE ${where.join(' AND ')}`, params)).rows[0].n;
   const byAct = (await pool.query(`SELECT act, COUNT(*)::int n FROM layer.trail GROUP BY 1 ORDER BY 2 DESC`)).rows;
   const byActor = (await pool.query(`SELECT actor_type, actor_name, COUNT(*)::int n FROM layer.trail GROUP BY 1,2 ORDER BY 3 DESC LIMIT 30`)).rows;
-  res.json({ rows, total, byAct, byActor });
+  // Entries per day over the last thirty days of the virtual clock, with the overrides counted apart (the Audit trail's one picture).
+  const since = new Date(Date.parse(today() + 'T00:00:00Z') - 29 * 86400_000).toISOString().slice(0, 10);
+  const byDay = (await pool.query(`SELECT to_char(at, 'YYYY-MM-DD') d, COUNT(*)::int n, COUNT(*) FILTER (WHERE override)::int overrides FROM layer.trail WHERE at >= $1 GROUP BY 1 ORDER BY 1`, [since])).rows;
+  const overrides = (await pool.query(`SELECT COUNT(*)::int n FROM layer.trail WHERE override`)).rows[0].n;
+  res.json({ rows, total, byAct, byActor, byDay, overrides });
 });
 data.get('/activity', async (req, res) => {
   const since = n(req.query.since, 0);

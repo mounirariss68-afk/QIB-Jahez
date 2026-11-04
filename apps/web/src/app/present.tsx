@@ -13,7 +13,7 @@
  * (layer.meta); the QIB default ships here and is merged with what is stored.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { cn } from '@cognirise/atelier/lib/utils';
+import { cn } from '@cognirise/cognipulse/lib/utils';
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Loader2, Maximize2, Minimize2, Pause, Play, Plus, Trash2, X } from 'lucide-react';
 import { api, useApi } from '../lib/api';
 import { num, pct } from '../lib/format';

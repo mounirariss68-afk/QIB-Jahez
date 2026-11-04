@@ -1,6 +1,8 @@
 node_modules/
 apps/web/dist/
 .env
+.data/
+tmp/
 *.log
 __pycache__/
 apps/mobile/node_modules/

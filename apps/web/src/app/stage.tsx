@@ -12,7 +12,7 @@
  * The Director drives it; the panes re-read the data after every step.
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { cn } from '@cognirise/atelier/lib/utils';
+import { cn } from '@cognirise/cognipulse/lib/utils';
 import { Bot, Check, ExternalLink, Hand, Landmark, Smartphone, Zap } from 'lucide-react';
 import { api, useApi } from '../lib/api';
 import { date, dateShort, dateTime, maskQid, month, num, qar, title } from '../lib/format';

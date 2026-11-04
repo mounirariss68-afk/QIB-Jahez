@@ -1,2 +1,7 @@
 node_modules
 dist
+tmp
+*.tsbuildinfo
+.tsbuildinfo
+.DS_Store
+_to_delete/

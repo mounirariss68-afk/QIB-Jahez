@@ -9,7 +9,7 @@
 @import "@fontsource/inter/latin-600.css";
 @import "@fontsource/inter/latin-800.css";
 
-@import "@cognirise/atelier/styles.css";
+@import "@cognirise/cognipulse/styles.css";
 
 /* Arabic runs (customer-facing content) use Almarai and never letter-spacing, caps or monospace. */
 .ar, [dir="rtl"] { font-family: Almarai, Inter, system-ui, sans-serif; letter-spacing: 0 !important; text-transform: none; }
@@ -51,6 +51,9 @@ html.presenting #root { zoom: 1.08; }
 html.presenting.on-stage #root { zoom: 1; } /* the Stage is dense and sized to the viewport; it is not enlarged */
 .present-overlay .eyebrow { color: hsl(var(--muted-foreground)); }
 .present-drawer { top: 72px !important; bottom: 0 !important; height: auto !important; border-top-left-radius: 16px; }
+
+/* The case, in the Inbox reader and the drawer: the body scrolls above the pinned decision and fades out before it, so no content reads as sitting under the bar. */
+.case-reader > .overflow-y-auto, .case-scroll { mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); }
 
 /* The Stage (Present mode): three panes that fit the screen and scroll on their own; the phone sized to its pane. */
 .stage-pane-body { max-height: calc(100vh - 210px); }

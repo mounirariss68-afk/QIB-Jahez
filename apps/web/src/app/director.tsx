@@ -6,8 +6,8 @@
  */
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import { Sheet, SheetContent, SheetTitle } from '@cognirise/atelier/components/ui/sheet';
-import { cn } from '@cognirise/atelier/lib/utils';
+import { Sheet, SheetContent, SheetTitle } from '@cognirise/cognipulse/components/ui/sheet';
+import { cn } from '@cognirise/cognipulse/lib/utils';
 import { Activity, ChevronLeft, ChevronRight, Hand, Loader2, Pause, Play, Square, Zap } from 'lucide-react';
 import { useApi } from '../lib/api';
 import { dateTime, title } from '../lib/format';

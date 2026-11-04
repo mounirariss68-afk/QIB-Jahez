@@ -85,7 +85,7 @@ export function AppShellDemo() {
     <div className="space-y-10">
       <Stack label="Title bar — 56px glass card">
         <div className="flex h-14 items-center gap-4 rounded-xl glass-chrome px-4">
-          <span className="font-wordmark select-none text-lg">Atelier</span>
+          <span className="font-wordmark select-none text-lg">CogniPulse</span>
           <div className="ms-auto flex items-center gap-4">
             <LensPicker />
             <ThemeModePicker />

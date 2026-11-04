@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client';
-import { ThemeProvider } from '@cognirise/atelier/layout';
+import { ThemeProvider } from '@cognirise/cognipulse/layout';
 import { AppState } from './app/state';
 import App from './App';
 import './index.css';

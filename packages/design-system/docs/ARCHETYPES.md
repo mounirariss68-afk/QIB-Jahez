@@ -65,7 +65,7 @@ import {
   ScenarioRunner, ScenarioCard,
   SettingsLayout, SettingsGroup, PersonaSwitcher,
   ProvenanceChip, DemoBanner, DecisionTrail, TrailEntry,
-} from "@cognirise/atelier/archetypes";
+} from "@cognirise/cognipulse/archetypes";
 ```
 
 All of it sits **inside `<MainPanel>`**. The archetype layouts are L1 content;
@@ -229,6 +229,24 @@ real source the client supplied — name the source).
 
 Prefix every fabricated identifier: `DEMO-CASE-004182`, never `CASE-004182`.
 Render it with `<DemoReference>`.
+
+## The demo kit — the rig, the confirm card and the proof
+
+Three pieces every prototype needs and none should build again (`demo-kit.tsx`):
+
+| Component | What it is | Rule |
+| --- | --- | --- |
+| `<DemoControl>` | The one title-bar menu that holds the rig: Present, Scenarios, persona, clock, demo data and Reset, interface, skin | Nothing of the rig sits in a lens menu. Hidden when the address has `?client=1`. With `offline` it reads OFFLINE when Claude is not connected, the one place the room sees it |
+| `<ConfirmCard>` | What the assistant shows before a write: one sentence, the facts once, one button | Never a payload or a tool name; no sentence about what Confirm does not do |
+| `<Provenance>` | The one collapsed disclosure that holds the proof under a work surface: steps, trail, rules cited, system calls | Named for the question it answers; closed by default, everywhere, demos included; one per view |
+
+## The screen lint
+
+`scripts/check-screens.mjs` opens every screen of a running prototype in
+Chrome and fails on what must not be on a work surface: workflow and case ids,
+type codes, snake_case names, rung codes, HTTP calls, raw JSON, governance
+copy. Text inside a closed `<Provenance>` is not read. The prototype lists its
+screens in `tools/screens.json` and runs it as `npm run check:screens`.
 
 ## Decision trail — who did what
 

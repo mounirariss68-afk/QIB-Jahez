@@ -1,4 +1,4 @@
-# Migrating web UI to Cognirise Atelier
+# Migrating web UI to CogniPulse
 
 Read `docs/AGENTS.md` and
 `docs/consuming-web.md` first. Use this guide
@@ -21,9 +21,9 @@ consumption guide.
 Rewrite every local import for a module this package provides:
 
 - `@/components/ui/<name>` →
-  `@cognirise/atelier/components/ui/<name>`
-- `@/lib/utils` (`cn`) → `@cognirise/atelier/lib/utils`
-- `@/hooks/use-toast` → `@cognirise/atelier/hooks/use-toast`
+  `@cognirise/cognipulse/components/ui/<name>`
+- `@/lib/utils` (`cn`) → `@cognirise/cognipulse/lib/utils`
+- `@/hooks/use-toast` → `@cognirise/cognipulse/hooks/use-toast`
 
 Judge component ownership by the imported module, not by the file doing the
 import. App-specific components may remain local, but they must import shared

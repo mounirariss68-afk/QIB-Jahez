@@ -45,7 +45,7 @@ export function PageContainer({
  *             opener, and especially when the hero carries `media`.
  *
  * A hero that is only eyebrow + headline + lede is the most common way an
- * Atelier app ends up looking thin. Give it `media` (a signature visual for
+ * CogniPulse app ends up looking thin. Give it `media` (a signature visual for
  * the product) and `feature` (the one number that answers "how are we doing
  * right now") unless there is a reason not to.
  *

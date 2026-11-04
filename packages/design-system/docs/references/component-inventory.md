@@ -1,6 +1,6 @@
-# Component inventory — source: Atelier employee portal
+# Component inventory — source: CogniPulse employee portal
 
-Source library: the Atelier employee portal's component set (~60 modules). It is a
+Source library: the CogniPulse employee portal's component set (~60 modules). It is a
 shadcn-based set themed entirely by CSS variables, so this design system's
 scaffold components cover most families automatically once the Cognirise
 tokens and brand layer are applied. Families are grouped below by how they
@@ -20,7 +20,7 @@ These pick up the extracted palette, radii, fonts, and elevation from
 `tokens.json` + the brand layer. `card` was additionally customized (glass
 surface, below).
 
-## Atelier signature pieces (ported into the brand layer / pilot)
+## CogniPulse signature pieces (ported into the brand layer / pilot)
 
 | Source | Here | Notes |
 | --- | --- | --- |
@@ -45,7 +45,7 @@ rebuild these compositions from the primitives; the spec is the contract.
 ## Deliberately not ported (app-specific)
 
 `kpi-card.tsx`, `record-card.tsx`, `view-toggle.tsx`, `fieldControls.ts`
-compositions tied to Atelier's data model, wouter routing, or api-client
+compositions tied to CogniPulse's data model, wouter routing, or api-client
 types. Rebuild in the consuming app from this system's primitives if needed.
 
 ## Pilot set (presented for approval)

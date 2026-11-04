@@ -1,0 +1,28 @@
+{
+  "screens": [
+    { "name": "01-overview", "persona": "head", "hash": "#/overview" },
+    { "name": "02-health", "persona": "steward", "hash": "#/health" },
+    { "name": "03-inbox-supervisor", "persona": "supervisor", "hash": "#/inbox" },
+    { "name": "04-inbox-credit", "persona": "credit", "hash": "#/inbox" },
+    { "name": "05-inbox-ops", "persona": "ops", "hash": "#/inbox" },
+    { "name": "06-cases", "persona": "ops", "hash": "#/cases" },
+    { "name": "05b-inbox-ops-proof-open", "persona": "ops", "hash": "#/inbox", "click": ["text=How this was checked"] },
+    { "name": "05c-inbox-ops-decline", "persona": "ops", "hash": "#/inbox", "click": ["text=Keep paused"] },
+    { "name": "05d-inbox-ops-tasks", "persona": "ops", "hash": "#/inbox", "click": ["role=tab[name=/Tasks/]"] },
+    { "name": "07-case-drawer", "persona": "ops", "hash": "#/cases/DEMO-CASE-00001", "wait": 2500 },
+    { "name": "08-customers", "persona": "head", "hash": "#/customers" },
+    { "name": "09-customer-360", "persona": "head", "hash": "#/customers/DEMO-C-00002", "wait": 2500 },
+    { "name": "10-employers", "persona": "credit", "hash": "#/employers" },
+    { "name": "11-comms", "persona": "compliance", "hash": "#/comms" },
+    { "name": "12-policies", "persona": "head", "hash": "#/policies" },
+    { "name": "13-documents", "persona": "supervisor", "hash": "#/documents" },
+    { "name": "14-agents", "persona": "head", "hash": "#/agents" },
+    { "name": "15-workflows", "persona": "head", "hash": "#/workflows" },
+    { "name": "16-audit", "persona": "compliance", "hash": "#/audit" },
+    { "name": "17-scenarios", "persona": "head", "hash": "#/scenarios" },
+    { "name": "18-settings", "persona": "head", "hash": "#/settings" },
+    { "name": "19-triggers", "persona": "head", "hash": "#/triggers" },
+    { "name": "20-customer-app", "persona": "head", "hash": "#/customer-app" },
+    { "name": "21-present", "persona": "head", "hash": "#/present", "wait": 2500 }
+  ]
+}

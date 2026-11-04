@@ -1,4 +1,4 @@
-# Consuming Atelier in Expo apps
+# Consuming CogniPulse in Expo apps
 
 > **Expo / React Native support is not yet available in this package.**
 >
@@ -12,7 +12,7 @@
 > theme manually:
 >
 > ```tsx
-> import { tokens } from "@cognirise/atelier/tokens";
+> import { tokens } from "@cognirise/cognipulse/tokens";
 >
 > // Convert CSS rem to device-independent pixels (1rem = 16px)
 > const radiusPx =
@@ -104,7 +104,7 @@ tokens. It is on the palette and the type rules; the components and the layout
 are still hand-built until a native layer exists.
 
 ```tsx
-import { tokens } from "@cognirise/atelier/tokens";
+import { tokens } from "@cognirise/cognipulse/tokens";
 
 const c = tokens.color.dark;
 const gradient = tokens.brand.gradient;        // four hex stops, left to right

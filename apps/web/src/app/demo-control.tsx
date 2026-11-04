@@ -6,8 +6,8 @@
  * when the client explores alone.
  */
 import { useState } from 'react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@cognirise/atelier/components/ui/dropdown-menu';
-import { useTheme } from '@cognirise/atelier/layout';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@cognirise/cognipulse/components/ui/dropdown-menu';
+import { useTheme } from '@cognirise/cognipulse/layout';
 import { Activity, CalendarClock, Check, Database, Monitor, Moon, Play, Presentation, RotateCcw, Settings as SettingsIcon, SlidersHorizontal, Smartphone, Sun, UserRound } from 'lucide-react';
 import { bump, post, useApi } from '../lib/api';
 import { useApp } from './state';
@@ -32,6 +32,8 @@ export function DemoControl() {
       <DropdownMenuTrigger asChild>
         <button type="button" className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card/50 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-card hover:text-foreground active:scale-[0.97]" title="Everything the presenter needs: Present mode, the scenarios, the persona, the clock, the phone, the data">
           <SlidersHorizontal className="h-3.5 w-3.5" />Demo
+          {/* As CogniPulse's <DemoControl offline>: the one place the room sees that Claude is not connected. Jahiz keeps its own control for the sub-menus (stories, persona, clock) CogniPulse's has not got yet, a harvest. */}
+          {session.ai?.mode !== 'claude' ? <span className="rounded-sm bg-warn/15 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-warn">Offline</span> : null}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72">
@@ -43,7 +45,7 @@ export function DemoControl() {
             {(sc?.scenarios ?? []).map((s: any) => (
               <DropdownMenuItem key={s.key} onSelect={() => { startScenario(s.key); }} className="items-start gap-2 py-2">
                 <Play className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-                <span className="min-w-0"><span className="block text-sm">{s.key} · {s.name}</span><span className="block text-[11px] text-muted-foreground">{s.shape} · {s.steps.length} steps</span></span>
+                <span className="min-w-0" title={s.key}><span className="block text-sm">{s.name}</span><span className="block text-[11px] text-muted-foreground">{s.steps.length} steps · {String(s.shape).toLowerCase()}</span></span>
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />

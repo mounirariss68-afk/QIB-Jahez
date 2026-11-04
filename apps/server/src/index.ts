@@ -53,3 +53,5 @@ async function main() {
 }
 main().catch((e) => { console.error(e); process.exit(1); });
 process.on('unhandledRejection', (e) => console.error('[unhandled]', e));
+// Close the database on the way out, so the built-in one keeps what it holds between starts.
+for (const sig of ['SIGINT', 'SIGTERM'] as const) process.once(sig, () => { pool.end().catch(() => {}).finally(() => process.exit(0)); });

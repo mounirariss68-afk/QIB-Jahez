@@ -3,7 +3,11 @@
   "private": true,
   "version": "0.1.0",
   "description": "Jahiz - an agentic readiness and remediation layer for Qatar Islamic Bank's One Click Finance pre-approval. Demo prototype on synthetic data.",
-  "workspaces": ["packages/*", "apps/server", "apps/web"],
+  "workspaces": [
+    "packages/*",
+    "apps/server",
+    "apps/web"
+  ],
   "scripts": {
     "start": "npm run start --workspace @jahiz/server",
     "build": "npm run build --workspace @jahiz/web",
@@ -11,11 +15,23 @@
     "dev:server": "npm run dev --workspace @jahiz/server",
     "seed": "npm run seed --workspace @jahiz/server",
     "check": "npm run check --workspace @jahiz/server",
+    "shots": "node tools/shots.mjs",
+    "check:screens": "node tools/checks.mjs lint",
+    "check:scenarios": "node tools/checks.mjs scenarios",
+    "check:play": "node tools/checks.mjs play",
     "typecheck": "npm run typecheck --workspace @jahiz/domain && npm run typecheck --workspace @jahiz/server && npm run typecheck --workspace @jahiz/web",
-    "tokens": "npm run tokens --workspace @cognirise/atelier",
-    "contrast": "npm run contrast --workspace @cognirise/atelier",
+    "tokens": "npm run tokens --workspace @cognirise/cognipulse",
+    "contrast": "npm run contrast --workspace @cognirise/cognipulse",
     "replit": "bash tools/replit-run.sh"
   },
-  "overrides": { "rollup": "4.63.3", "vite": "7.3.6" },
-  "engines": { "node": ">=20" }
+  "overrides": {
+    "rollup": "4.63.3",
+    "vite": "7.3.6"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.56.1"
+  }
 }

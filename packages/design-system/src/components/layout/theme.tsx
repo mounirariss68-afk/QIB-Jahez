@@ -9,7 +9,7 @@ import {
 } from 'react';
 
 /**
- * The Atelier light / dark / system theme contract.
+ * The CogniPulse light / dark / system theme contract.
  *
  * - The selected MODE persists, never its resolved value, so "system" survives
  *   a reload and keeps following the OS.
@@ -25,7 +25,7 @@ import {
 export type ThemeMode = 'light' | 'dark' | 'system';
 export type ResolvedTheme = 'light' | 'dark';
 
-export const THEME_STORAGE_KEY = 'atelier-theme';
+export const THEME_STORAGE_KEY = 'cognipulse-theme';
 
 /**
  * Drop this into <head> as `<script dangerouslySetInnerHTML={{ __html:

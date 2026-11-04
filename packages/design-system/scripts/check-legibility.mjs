@@ -31,7 +31,7 @@ function ratio(a,c){const hi=Math.max(a,c),lo=Math.min(a,c);return (hi+0.05)/(lo
 
 for (const theme of ['light','dark']) {
   const ctx = await b.newContext({ viewport:{width:1760,height:1180} });
-  await ctx.addInitScript(([t])=>localStorage.setItem('atelier-theme',t),[theme]);
+  await ctx.addInitScript(([t])=>localStorage.setItem('cognipulse-theme',t),[theme]);
   const p = await ctx.newPage();
   await p.goto(URL,{waitUntil:'networkidle'});
   await p.waitForTimeout(1800);

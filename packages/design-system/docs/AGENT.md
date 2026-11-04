@@ -8,7 +8,7 @@ screens** is three parts, and only the first is app-specific:
 3. a **runner** that executes the calls, refusing anything the registry does not
    know and holding writes for confirmation
 
-Parts 2 and 3 ship in `@cognirise/atelier/agent`. Part 1 is the work.
+Parts 2 and 3 ship in `@cognirise/cognipulse/agent`. Part 1 is the work.
 
 ## Why a registry, and not hand-written tools
 

@@ -1,6 +1,6 @@
 # Retained Cognirise brand assets
 
-Everything here is retained verbatim from the Atelier employee portal. Do not
+Everything here is retained verbatim from the CogniPulse employee portal. Do not
 redraw, recolor, or regenerate these files.
 
 These are the **reference** copies — Cognirise's own brand. The assets an app
@@ -42,7 +42,7 @@ survives every build.
 
 ## Backdrop layering pattern
 
-Atelier paints its backdrop once, fixed, behind everything (bottom → top):
+CogniPulse paints its backdrop once, fixed, behind everything (bottom → top):
 
 1. `body::before` — fixed 160° gradient (`--backdrop-deep → mid → hi`), the
    color fallback while artwork loads. Provided as `.cog-backdrop` on `<body>`.

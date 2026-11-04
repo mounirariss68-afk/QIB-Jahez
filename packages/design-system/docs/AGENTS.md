@@ -1,8 +1,8 @@
-# Atelier design system
+# CogniPulse design system
 
 This package defines the visual language AND the default page layout for the
 project. Use it whenever you build or restyle UI so every surface looks like
-the same product. It is a real package (`@cognirise/atelier`): the app depends
+the same product. It is a real package (`@cognirise/cognipulse`): the app depends
 on it and imports its theme, layout and components directly.
 
 Two documents are contracts, not suggestions:
@@ -66,7 +66,7 @@ Read both before building UI or changing a theme.
   backdrop wallpapers, OG image, Riser avatar) with usage + backdrop-layering
   notes in `docs/references/README.md`, and the source component inventory in
   `docs/references/component-inventory.md`. `scripts/theme-template.css` ends
-  with the "Cognirise Atelier brand layer": the `--cog-grad` accent gradient,
+  with the "CogniPulse brand layer": the `--cog-grad` accent gradient,
   knob-driven glass surfaces (`.glass-card`/`.glass-panel`/`.glass-popover`,
   with reduced-transparency fallbacks), the `.cog-backdrop` fixed backdrop
   pattern, the `.page-hero` navy dark-island, and editorial primitives
@@ -96,7 +96,7 @@ not add `.ts` files here.
 
 Components import each other with relative paths internally, so they resolve
 correctly when another package imports them through
-`@cognirise/atelier/components/...`. Never use a `@/` alias inside
+`@cognirise/cognipulse/components/...`. Never use a `@/` alias inside
 this package. Components added through shadcn may use this package's
 `#components/*`, `#lib/*`, and `#hooks/*` imports from `package.json`; those are
 consumer-safe because they resolve against this package.
@@ -139,13 +139,13 @@ dependency back in before the user saves the template.
 ## Prototyping on the canvas
 
 Use the mockup-sandbox skill's "Design systems" flow. It creates a sandbox entry
-for `@cognirise/atelier` and renders mockups using this package's
+for `@cognirise/cognipulse` and renders mockups using this package's
 theme and components.
 
 ## Consuming this package
 
 Never copy token values, component source, hooks, or these docs into a consuming
-artifact. Add `@cognirise/atelier` as a `workspace:*` dependency,
+artifact. Add `@cognirise/cognipulse` as a `workspace:*` dependency,
 run `pnpm install`, and import directly from this package.
 
 Read only the guides required by the current task:

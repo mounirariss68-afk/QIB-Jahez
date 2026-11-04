@@ -1,48 +1,94 @@
-/** Settings — personas and authority, synthetic data, connectors, AI. */
+/**
+ * Settings — "Who am I acting as, and what is connected?" CogniPulse's
+ * SettingsLayout: the sections on the left, one at a time on the right. The
+ * persona switcher first; who may do what in words; Claude and the
+ * connections with their file and variable names behind each disclosure; the
+ * demo's storylines; the synthetic data. A settings screen carries no decision,
+ * so it carries no picture.
+ */
 import { useState } from 'react';
-import { Panel, PageColumns } from '@cognirise/atelier/layout';
-import { Database, Loader2, Network, Presentation, Sparkles, Users } from 'lucide-react';
+import { PersonaSwitcher, SettingsGroup, SettingsLayout, SettingsNavItem, SettingsRow } from '@cognirise/cognipulse/archetypes';
+import { Loader2 } from 'lucide-react';
 import { bump, post, useApi } from '../lib/api';
 import { num } from '../lib/format';
 import { useApp } from '../app/state';
-import { Btn, Chip, Empty, Hero, Note, Screen, StatusChip, Table } from '../app/ui';
+import { AGENT_NAMES, Btn, Chip, Empty, Hero, Note, Screen, StatusChip, Table } from '../app/ui';
 import { StorylineEditor } from '../app/present';
 
-const MATRIX: [string, string][] = [
-  ['SEND_REQUEST / SEND_REMINDER', 'Head · Ops (Mass/HV) · Supervisor · RM (own book)'], ['RESCHEDULE', 'Head · Ops · Supervisor · RM · Collections (class D)'], ['PAUSE / RESUME', 'Head · Ops · Supervisor · Compliance · RM · Collections (D)'], ['ESCALATE_TO_RM', 'Head · Ops · Supervisor'],
-  ['PROPOSE_UPDATE (maker)', 'Ops · Supervisor · RM'], ['APPROVE / REJECT_UPDATE (checker)', 'Head · Supervisor'], ['ACCEPT_EXPLAINED_GAP', 'Head · Credit (HV/HNWI/VVIP) · Supervisor (Mass)'], ['OPEN_EMPLOYER_REVIEW', 'Head · Credit · Ops · Supervisor · RM'], ['DECIDE_EMPLOYER', 'Head · Credit'],
-  ['RERUN_QUALIFICATION', 'Head · Credit · Ops · Supervisor · RM · Collections (D)'], ['APPROVE_HANDOFF (HNWI/VVIP)', 'Head · RM'], ['PROPOSE_RESTRICTION', 'Head · Ops · Supervisor · RM'], ['DECIDE_RESTRICTION', 'Head (VVIP) · Supervisor (Mass/HV) · RM (HNWI)'], ['CLOSE_UNRESPONSIVE', 'Head · Supervisor · RM'],
-  ['CLEAR / RECLASSIFY_CAUTIONARY_NOTE', 'Compliance'], ['ADD / REMOVE_DNC', 'Compliance'], ['COLLECTIONS_CADENCE_EXCEPTION', 'Collections'], ['PROPOSE_POLICY_CHANGE', 'Head (all) · Credit (POL-03/04) · Supervisor (POL-01/02/06) · Compliance (POL-05/07/09/10) · Data Steward (POL-03 definitions)'], ['APPROVE_POLICY_CHANGE', 'Head (POL-01/02/03/08) · Credit (POL-04) · Supervisor (POL-06) · Compliance (POL-05/07/09/10)'],
+/** Who may do what, in the person's words; the engine's action name travels in the hover. */
+const MATRIX: [string, string, string][] = [
+  ['SEND_REQUEST / SEND_REMINDER', 'Send the next notice now', 'Head · Operations (Mass, High Value) · Supervisor · RM (own book)'],
+  ['RESCHEDULE', 'Reschedule a notice', 'Head · Operations · Supervisor · RM · Collections (arrears)'],
+  ['PAUSE / RESUME', 'Pause or resume a case', 'Head · Operations · Supervisor · Compliance · RM · Collections (arrears)'],
+  ['ESCALATE_TO_RM', 'Hand a case to a person', 'Head · Operations · Supervisor'],
+  ['PROPOSE_UPDATE (maker)', 'Propose a record update (maker)', 'Operations · Supervisor · RM'],
+  ['APPROVE / REJECT_UPDATE (checker)', 'Approve or reject a record update (checker)', 'Head · Supervisor'],
+  ['ACCEPT_EXPLAINED_GAP', 'Accept an explained salary gap', 'Head · Credit (High Value, HNWI, VVIP) · Supervisor (Mass)'],
+  ['OPEN_EMPLOYER_REVIEW', 'Open an employer review', 'Head · Credit · Operations · Supervisor · RM'],
+  ['DECIDE_EMPLOYER', 'Approve or decline an employer', 'Head · Credit'],
+  ['RERUN_QUALIFICATION', 'Re-run the eligibility check', 'Head · Credit · Operations · Supervisor · RM · Collections (arrears)'],
+  ['APPROVE_HANDOFF (HNWI/VVIP)', 'Hand an HNWI or VVIP offer to One Click', 'Head · RM'],
+  ['PROPOSE_RESTRICTION', 'Propose a card restriction', 'Head · Operations · Supervisor · RM'],
+  ['DECIDE_RESTRICTION', 'Decide a card restriction', 'Head (VVIP) · Supervisor (Mass, High Value) · RM (HNWI)'],
+  ['CLOSE_UNRESPONSIVE', 'Close a case as unresponsive', 'Head · Supervisor · RM'],
+  ['CLEAR / RECLASSIFY_CAUTIONARY_NOTE', 'Clear or reclassify a cautionary note', 'Compliance'],
+  ['ADD / REMOVE_DNC', 'Add to or remove from do-not-contact', 'Compliance'],
+  ['COLLECTIONS_CADENCE_EXCEPTION', 'Take a case past the collections boundary', 'Collections'],
+  ['PROPOSE_POLICY_CHANGE', 'Propose a policy change', 'Head (every rule) · Credit (eligibility, employers) · Supervisor (contact, documents) · Compliance (privacy, suppression, conduct) · Data Steward (the definitions)'],
+  ['APPROVE_POLICY_CHANGE', 'Approve a policy change', 'Head (contact, eligibility, segments) · Credit (employers) · Supervisor (documents) · Compliance (privacy, suppression, conduct)'],
 ];
+
+type Section = 'personas' | 'authority' | 'ai' | 'demo' | 'data';
 
 export function SettingsScreen() {
   const { data, error } = useApi<any>('/settings');
   const { switchPersona, persona } = useApp();
+  const [section, setSection] = useState<Section>('personas');
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false); const [msg, setMsg] = useState('');
   if (error) return <Empty>{error}</Empty>;
   if (!data) return <p className="p-6 text-sm text-muted-foreground">Loading…</p>;
+  const agentsOf = (ids: string[]) => ids.map((id) => AGENT_NAMES[id]?.[0] ?? id).join(', ');
+  const nav: [Section, string][] = [['personas', 'Who you act as'], ['authority', 'Who may do what'], ['ai', 'Claude and the connections'], ['demo', 'Present mode'], ['data', 'The synthetic data']];
   return (
-    <Screen hero={<Hero eyebrow="Settings" title="Personas, data, connectors, AI, the demo" lede="Switching persona changes the inbox, the scope, what is approvable and what Dalil will do; the data generator reads the DATA parameters, so a reset produces a base that matches QIB's." />} banner={false}>
+    <Screen hero={<Hero eyebrow="Demo · Settings" title={`You are acting as ${persona?.name ?? '—'}, ${persona?.role ?? ''}; Claude is ${data.ai.mode === 'claude' ? 'connected' : 'not connected, so the agents run Offline'}`} />}>
       {msg ? <Note>{msg}</Note> : null}
-      <PageColumns aside={<>
-        <Panel icon={<Sparkles size={16} />} title="AI"><p className="flex items-center gap-2 text-sm"><StatusChip status={data.ai.mode} /><span>{data.ai.mode === 'claude' ? `Claude via ${data.ai.via}, model ${data.ai.model}` : 'Replit AI Integrations is not connected'}</span></p><p className="mt-2 text-[12px] text-muted-foreground">Five agents use Claude through Replit's Anthropic connection, for four kinds of work: Dalil's conversation, Mustaqbil's classification of free text, Fahis's reading of documents, and the drafts Munadi and Muwathiq prepare for a person. Everything that decides is deterministic. No API key is stored in the app; without the connection every Claude step has an Offline fallback and says so.</p></Panel>
-        <Panel icon={<Network size={16} />} title="Connectors"><ul className="space-y-2">{data.connectors.map((c: any) => <li key={c.id} className="text-[12px]"><p className="flex items-center gap-2"><Chip tone={c.status === 'claude' || c.status === 'simulated' ? 'primary' : c.status === 'offline' || c.status === 'stubbed' ? 'warn' : undefined}>{c.status}</Chip><span className="font-medium">{c.name}</span></p><p className="text-muted-foreground">{c.note}</p></li>)}</ul><p className="mt-2 text-[11px] text-muted-foreground">Microsoft Graph needs {data.graph.needs.join(', ')} and application permissions Mail.Send and Mail.ReadWrite on a shared mailbox; it is one adapter swap, done after the first demo.</p></Panel>
-      </>}>
-        <Panel icon={<Users size={16} />} title="Personas">
-          <Table><thead><tr><th>Persona</th><th>Role</th><th>Sees</th><th>Owns</th><th></th></tr></thead><tbody>{data.personas.map((p: any) => <tr key={p.key}><td><span className="flex items-center gap-2"><span className={`flex h-7 w-7 items-center justify-center rounded-full border text-[11px] font-semibold ${persona?.key === p.key ? 'border-primary bg-primary text-primary-foreground' : 'border-border'}`}>{p.initials}</span><span className="text-sm">{p.name} <span className="ar text-muted-foreground">{p.name_ar}</span></span></span></td><td className="text-[12px]">{p.role}</td><td className="text-[12px] text-muted-foreground">{p.sees}</td><td className="text-[12px]">{p.owns.join(', ') || '—'}</td><td><Btn small onClick={() => switchPersona(p.key)} disabled={persona?.key === p.key}>Act as</Btn></td></tr>)}</tbody></Table>
-          <p className="eyebrow mt-4">Authority matrix</p>
-          <Table className="mt-1"><thead><tr><th>Action</th><th>Who may</th></tr></thead><tbody>{MATRIX.map(([a, w]) => <tr key={a}><td className="font-mono text-[11px]">{a}</td><td className="text-[12px]">{w}</td></tr>)}</tbody></Table>
-        </Panel>
-        <Panel icon={<Presentation size={16} />} title="Demo · Present mode storylines">
-          <p className="mb-3 text-[13px] text-muted-foreground">Present mode replaces the slides: card chapters are drawn by the app with live numbers, scenario chapters hand the room to the Director with the menu hidden, and each scenario is followed by a card with what it did, counted from the trail. Start it from the Present button in the title bar; → and ← move, F is full screen, Esc leaves.</p>
-          <StorylineEditor />
-        </Panel>
-        <Panel icon={<Database size={16} />} title="Synthetic data (DATA parameters) · reset rebuilds the world from these">
-          <Table><thead><tr><th>Parameter</th><th>Value</th><th>Basis</th></tr></thead><tbody>{data.data.map((p: any) => <tr key={p.key}><td><span className="block text-sm">{p.label}</span><span className="font-mono text-[11px] text-muted-foreground">{p.key}{p.unit ? ` · ${p.unit}` : ''}</span></td><td><input className="input h-8 w-64 font-mono text-[12px]" value={edits[p.key] ?? (Array.isArray(p.value) ? p.value.join(', ') : String(p.value))} onChange={(e) => setEdits({ ...edits, [p.key]: e.target.value })} /></td><td className="text-[11px] text-muted-foreground">{p.basis}</td></tr>)}</tbody></Table>
-          <div className="mt-3 flex flex-wrap items-center gap-2"><Btn kind="danger" disabled={busy} onClick={async () => { if (!confirm('Rebuild the synthetic world with these distributions? About two minutes.')) return; setBusy(true); setMsg('Rebuilding…'); try { const params: any = {}; for (const p of data.data) { const v = edits[p.key]; if (v === undefined) continue; params[p.key] = p.type === 'number' ? Number(v) : p.type === 'list' ? v.split(',').map((s: string) => s.trim()) : v; } await post('/control/reset', { params: Object.keys(params).length ? { ...(await (await fetch('/api/policies')).json()).params.reduce((m: any, x: any) => { m[x.key] = x.stored ?? x.value; return m; }, {}), ...params } : undefined }); setMsg('Rebuilt. The clock is at today 09:00 Doha.'); bump(); } catch (e: any) { setMsg(e.message); } finally { setBusy(false); } }}>{busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}Reset the demo with these values</Btn><span className="text-[12px] text-muted-foreground">Seed {data.seed?.seed} · built {data.seed?.at ? new Date(data.seed.at).toLocaleString('en-GB') : '—'} · {num(2400)} customers by default</span></div>
-        </Panel>
-      </PageColumns>
+      <SettingsLayout nav={nav.map(([id, label]) => <SettingsNavItem key={id} active={section === id} onSelect={() => setSection(id)}>{label}</SettingsNavItem>)}>
+        {section === 'personas' ? (
+          <SettingsGroup title="Who you act as" description="Switching changes the inbox, the scope, what you may approve and what Dalil will do for you.">
+            <PersonaSwitcher value={persona?.key ?? ''} onChange={(k) => switchPersona(k)}
+              personas={data.personas.map((p: any) => ({ id: p.key, name: p.name, role: p.role, initials: p.initials, remit: <>{p.sees}{p.owns.length ? <span className="mt-1 block text-[12px] text-muted-foreground">Answers for {agentsOf(p.owns)}</span> : null}</> }))} />
+          </SettingsGroup>
+        ) : null}
+        {section === 'authority' ? (
+          <SettingsGroup title="Who may do what" description="Each action the engine allows, and the people who may take it. The bank's credit model remains the credit decision.">
+            <Table><thead><tr><th>Action</th><th>Who may</th></tr></thead><tbody>{MATRIX.map(([code, a, w]) => <tr key={code} title={code}><td className="text-[13px]">{a}</td><td className="text-[13px] text-muted-foreground">{w}</td></tr>)}</tbody></Table>
+          </SettingsGroup>
+        ) : null}
+        {section === 'ai' ? (
+          <SettingsGroup title="Claude and the connections" description="Everything that decides is deterministic. Five agents use Claude for four kinds of work: Dalil's conversation, Mustaqbil's reading of replies, Fahis's reading of documents, and the drafts Munadi and Muwathiq prepare for a person. Without the connection each of those steps runs Offline and says so.">
+            {data.connectors.map((c: any) => (
+              <SettingsRow key={c.id} label={c.name}
+                hint={<details className="group"><summary className="cursor-pointer list-none text-[12px] text-muted-foreground hover:text-foreground">How it is wired ▸</summary><p className="mt-1 text-[12px]">{c.note}</p>{c.id === 'GRAPH' ? <p className="mt-1 text-[12px]">Needs {data.graph.needs.join(', ')} and the Mail.Send and Mail.ReadWrite permissions on a shared mailbox.</p> : null}</details>}
+                control={c.id === 'ANTHROPIC' ? <StatusChip status={data.ai.mode} /> : <Chip tone={c.status === 'simulated' ? 'primary' : c.status === 'stubbed' ? 'warn' : undefined}>{c.status}</Chip>} />
+            ))}
+          </SettingsGroup>
+        ) : null}
+        {section === 'demo' ? (
+          <SettingsGroup title="Present mode" description="Present mode replaces the slides: the cards are drawn by the app with live numbers, each story hands the room to the Director with the menu hidden, and a card after it says what it did. → and ← move, F is full screen, Esc leaves.">
+            <StorylineEditor />
+          </SettingsGroup>
+        ) : null}
+        {section === 'data' ? (
+          <SettingsGroup title="The synthetic data" description={`Built ${data.seed?.at ? new Date(data.seed.at).toLocaleString('en-GB') : '—'} from seed ${data.seed?.seed ?? '—'}; ${num(2400)} customers by default. A reset rebuilds the world from these values and replays sixty days, in about two minutes.`}
+            action={<Btn kind="danger" small disabled={busy} onClick={async () => { if (!confirm('Rebuild the synthetic world with these values? About two minutes.')) return; setBusy(true); setMsg('Rebuilding…'); try { const params: any = {}; for (const p of data.data) { const v = edits[p.key]; if (v === undefined) continue; params[p.key] = p.type === 'number' ? Number(v) : p.type === 'list' ? v.split(',').map((s: string) => s.trim()) : v; } await post('/control/reset', { params: Object.keys(params).length ? { ...(await (await fetch('/api/policies')).json()).params.reduce((m: any, x: any) => { m[x.key] = x.stored ?? x.value; return m; }, {}), ...params } : undefined }); setMsg('Rebuilt. The clock is at today 09:00 Doha.'); bump(); } catch (e: any) { setMsg(e.message); } finally { setBusy(false); } }}>{busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}Reset the demo with these values</Btn>}>
+            {data.data.map((p: any) => (
+              <SettingsRow key={p.key} label={<span title={p.key}>{p.label}{p.unit ? <span className="font-normal text-muted-foreground"> · {p.unit}</span> : null}</span>} hint={p.basis}
+                control={<input className="input h-8 w-64 text-[13px]" value={edits[p.key] ?? (Array.isArray(p.value) ? p.value.join(', ') : String(p.value))} onChange={(e) => setEdits({ ...edits, [p.key]: e.target.value })} />} />
+            ))}
+          </SettingsGroup>
+        ) : null}
+      </SettingsLayout>
     </Screen>
   );
 }

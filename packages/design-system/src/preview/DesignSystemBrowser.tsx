@@ -174,7 +174,7 @@ function DesignSystemBrowserInner() {
           <div>
             <BrandLogo alt="Cognirise" />
             <p className="mt-2 text-xs text-muted-foreground">
-              <span className="font-wordmark text-foreground">Atelier</span> design system
+              <span className="font-wordmark text-foreground">CogniPulse</span> design system
             </p>
           </div>
           <button

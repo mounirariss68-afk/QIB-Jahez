@@ -5,7 +5,7 @@
  * on its say-so.
  */
 import { useEffect, useRef, useState } from 'react';
-import { ChatAssistantTurn, ChatComposer, ChatRail, ChatStatusBadge, ChatSuggestions, ChatUserTurn, RailBrandCard, type ChatRailState } from '@cognirise/atelier/layout';
+import { ChatAssistantTurn, ChatComposer, ChatRail, ChatStatusBadge, ChatSuggestions, ChatUserTurn, RailBrandCard, type ChatRailState } from '@cognirise/cognipulse/layout';
 import { FileCheck2, RotateCcw } from 'lucide-react';
 import { api, bump, post, useApi } from '../lib/api';
 import { useApp } from './state';

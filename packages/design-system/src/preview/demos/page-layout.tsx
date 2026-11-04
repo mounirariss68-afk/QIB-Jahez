@@ -64,7 +64,7 @@ export function PageLayoutDemo() {
             {/* Chat rail — glass-chrome, pinned, its own column */}
             <div className="flex w-[268px] shrink-0 flex-col gap-3 p-3">
               <div className="flex h-14 shrink-0 items-center rounded-xl glass-chrome px-4">
-                <Wordmark className="text-base">Atelier</Wordmark>
+                <Wordmark className="text-base">CogniPulse</Wordmark>
               </div>
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl glass-chrome">
                 <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
@@ -89,7 +89,7 @@ export function PageLayoutDemo() {
                   menu when the menu is horizontal. Sticks as ONE unit. */}
               <div className="shrink-0 space-y-3 p-3 pb-0">
                 <div className="flex h-14 items-center gap-4 rounded-xl glass-chrome px-4">
-                  <Wordmark>Atelier</Wordmark>
+                  <Wordmark>CogniPulse</Wordmark>
                   <div className="ms-auto flex items-center gap-4">
                     <LensPicker lenses={LENSES} value={lens} onChange={setLens} />
                     <ThemeModeToggle />

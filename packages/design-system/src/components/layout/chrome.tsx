@@ -7,8 +7,8 @@ import { useCallback, useEffect, useState } from 'react';
  */
 export type NavOrientation = 'horizontal' | 'vertical';
 
-const ORIENTATION_KEY = 'atelier-nav-orientation';
-const LABELS_KEY = 'atelier-nav-labels';
+const ORIENTATION_KEY = 'cognipulse-nav-orientation';
+const LABELS_KEY = 'cognipulse-nav-labels';
 
 /** Vertical nav widths. Collapsed shows icons only. */
 export const NAV_VERTICAL_WIDTH = 236;

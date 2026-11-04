@@ -92,17 +92,28 @@ wallpaper art loads, so they must already look right on their own.
 The light and dark wallpapers go at `public/brand/light-backdrop.webp` and
 `public/brand/dark-backdrop.webp`, referenced only through `brand.backdropArt`.
 
-**Backdrop contrast is the fuel for the whole visual language.** Glass has
-nothing to refract over a flat wash: the panels stop reading as glass and
-become plain cards, and the three-level depth scale collapses into one. A timid
-backdrop does not make the app safer — it makes it look unfinished.
+Make them from the client's tokens, after `npm run tokens`:
 
-So: confident, large-scale form with real luminance range — flowing ribbons
-with lit edges, a sweeping wave, filaments of the accent cutting across, a
-drift of particles. Built from the client's palette and, where the logo has
-one, its geometry. As a rough calibration, artwork that works here carries a
-greyscale luminance spread in the **150–220** range across the image, including
-the middle of the frame. Below about 60 there is nothing for the glass to do.
+```bash
+npm run backdrops            # quiet: banks and government (the default)
+npm run backdrops -- --loud  # stronger wash and arcs, for brands that want it
+```
+
+`scripts/make-backdrops.py` reads every colour from `tokens.json` (no colour is
+typed into the script), is deterministic, and prints each file's greyscale
+spread. Quiet is the default for banks and government, where loud backdrops
+were rejected (National Bonds); quiet still has to give the glass something to
+refract, which is why the arcs and the wash stay. The prototype owner reviews
+both backdrops before anything else.
+
+**Quiet is not flat.** Glass has nothing to refract over a flat wash: the
+panels stop reading as glass and become plain cards, and the three-level depth
+scale collapses into one (HalkRadar's flat wash "looked unfinished"). So even
+the quiet backdrop keeps a soft wash and hairline arcs in the client's colours,
+and the script reports its greyscale spread so the owner can see it is not
+flat. A loud backdrop (`--loud`, or the client's own artwork) is a choice the
+brand makes, never the default: National Bonds rejected one as "too green, too
+dark, too distracting", and banks and government want the quiet one.
 
 What keeps it legible is not flatness, it is the glass stack:
 
@@ -119,7 +130,7 @@ Nothing in it should read as a photograph or a literal picture of something.
 **Verify rather than eyeball.** `npm run legibility` loads the running app,
 hides all text to photograph what is composited underneath, and reports the
 worst pixel under each text block in both themes. Every block should clear
-4.5:1. That check, not a quiet backdrop, is what makes a bold one safe.
+4.5:1. That check is what makes any backdrop, quiet or loud, safe.
 
 Shipping the gradient alone (both `brand.backdropArt` values `none`) is a
 deliberate minimal choice, not the default.

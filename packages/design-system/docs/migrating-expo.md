@@ -1,4 +1,4 @@
-# Migrating Expo UI to Cognirise Atelier
+# Migrating Expo UI to CogniPulse
 
 > **Expo / React Native migration is not yet available.**
 >

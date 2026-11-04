@@ -8,8 +8,8 @@
  * Demo control beside the person, and the title bar holds four things.
  */
 import { useEffect, useMemo, type ReactNode } from 'react';
-import { AppShell, ContextNav, LensPicker, MainPanel, TitleBar, UserBadge, Wordmark, useAppChrome, useChatRail, type ContextNavItem, type Lens } from '@cognirise/atelier/layout';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@cognirise/atelier/components/ui/dropdown-menu';
+import { AppShell, ContextNav, LensPicker, MainPanel, TitleBar, UserBadge, Wordmark, useAppChrome, useChatRail, type ContextNavItem, type Lens } from '@cognirise/cognipulse/layout';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@cognirise/cognipulse/components/ui/dropdown-menu';
 import { Activity, Bot, Briefcase, Building2, Inbox, LayoutGrid, MessageSquare, ScrollText, ShieldCheck, Users, Workflow } from 'lucide-react';
 import { useApp } from './app/state';
 import { AssistantRail } from './app/assistant';
@@ -31,7 +31,7 @@ import { AuditScreen } from './screens/audit';
 import { CustomerAppScreen } from './screens/customerapp';
 import { SettingsScreen } from './screens/settings';
 
-try { if (!localStorage.getItem('atelier-nav-orientation')) localStorage.setItem('atelier-nav-orientation', 'vertical'); } catch { /* */ }
+try { if (!localStorage.getItem('cognipulse-nav-orientation')) localStorage.setItem('cognipulse-nav-orientation', 'vertical'); } catch { /* */ }
 
 const I = (n: ReactNode) => n;
 type Item = ContextNavItem & { personas?: string[]; labelFor?: Record<string, string> };

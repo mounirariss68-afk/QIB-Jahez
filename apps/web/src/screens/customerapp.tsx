@@ -3,12 +3,12 @@
  * same inbound demo API; only the presentation is modeled on the QIB app.
  */
 import { useEffect, useRef, useState } from 'react';
-import { Panel, PageColumns } from '@cognirise/atelier/layout';
+import { Panel, PageColumns } from '@cognirise/cognipulse/layout';
 import { Bell, Check, CheckCircle2, ChevronRight, CircleUserRound, FileText, Home, Landmark, Loader2, MessageCircle, Paperclip, Send, Smartphone, Sparkles, Upload, Wallet } from 'lucide-react';
 import { bump, post, useApi } from '../lib/api';
 import { date, dateTime, qar, rel, title } from '../lib/format';
 import { useApp } from '../app/state';
-import { Btn, Chip, Empty, Hero, Note, Ref, Screen, Select, StatusChip } from '../app/ui';
+import { Btn, Chip, Empty, Hero, Note, Ref, Screen, Select, StatusChip, REASON_LABEL } from '../app/ui';
 import './customerapp-phone.css';
 
 const ASK: Record<string, string> = { R07: 'Upload your renewed Qatar ID (front and back)', R06: 'Upload the data page of your renewed passport', R01: 'Upload a recent salary certificate or an HR letter', R02: 'Upload a salary certificate naming your employer', R04: 'Tell us what each standing order is for', R08: 'Open a current account', R13: 'Confirm your details to reactivate your account' };
@@ -22,8 +22,8 @@ export function CustomerAppScreen() {
   const [pick, setPick] = useState(id);
   const edge = session?.edge ?? {};
   return (
-    <Screen hero={<Hero eyebrow="Customer app · QIB Mobile (demo)" title="The customer's phone, inside the platform" lede="A familiar QIB-style customer screen for the finance offers and remedial requests Jahiz actually delivered. Uploads and replies enter the live demo inbound pipeline." />} banner={false}>
-      <div className="flex flex-wrap items-center gap-2"><input className="input" aria-label="Customer demo ID" placeholder="Customer DEMO id" value={pick} onChange={(e) => setPick(e.target.value.toUpperCase())} /><Btn small kind="primary" onClick={() => go('customer-app', pick)}>Open the phone</Btn><span className="text-[12px] text-muted-foreground">Edge cases:</span>{['EC02', 'EC03', 'EC09', 'EC13', 'EC17', 'EC01', 'EC07', 'EC08'].filter((k) => edge[k]).map((k) => <button key={k} type="button" className="mono-chip hover:opacity-80" onClick={() => { setPick(edge[k]); go('customer-app', edge[k]); }}>{k}</button>)}</div>
+    <Screen hero={<Hero eyebrow="Demo · The customer's phone" title="Act as the customer: what Jahiz sent arrives here, and what the customer sends goes into the live pipeline" />} banner={false}>
+      <div className="flex flex-wrap items-center gap-2"><input className="input h-9" aria-label="Customer" placeholder="Customer id" value={pick} onChange={(e) => setPick(e.target.value.toUpperCase())} /><Btn small kind="primary" onClick={() => go('customer-app', pick)}>Open the phone</Btn><span className="text-[12px] text-muted-foreground">The stories' customers:</span>{['EC02', 'EC03', 'EC09', 'EC13', 'EC17', 'EC01', 'EC07', 'EC08'].filter((k) => edge[k]).map((k, i) => <button key={k} type="button" title={`${k} · ${edge[k]}`} className={`rounded-full border px-2.5 py-0.5 text-[12px] hover:border-primary hover:text-primary ${edge[k] === id ? 'border-primary text-primary' : 'border-border'}`} onClick={() => { setPick(edge[k]); go('customer-app', edge[k]); }}>{i + 1}</button>)}</div>
       <Phone id={id} key={id} />
     </Screen>
   );
@@ -189,14 +189,16 @@ export function Phone({ id, bare, view, viewKey }: { id: string; bare?: boolean;
   if (bare) return phone;
   return <PageColumns aside={<>
       <Panel icon={<Smartphone size={16} />} title="This customer">
-        <p className="text-sm font-medium">{c.nameEn} <span className="ar text-muted-foreground">{c.nameAr}</span></p>
-        <p className="flex flex-wrap items-center gap-1 text-[12px] text-muted-foreground"><Ref>{c.id}</Ref><Chip>{title(c.segment)}</Chip>{c.app ? <Chip tone="success">app registered</Chip> : <Chip tone="warn">no app — e-mail and SMS only</Chip>}{c.marketing ? <Chip>marketing consent</Chip> : <Chip tone="warn">no marketing consent</Chip>}{c.dnc ? <Chip tone="danger">do-not-contact</Chip> : null}</p>
-        <dl className="mt-2 grid grid-cols-2 gap-2 text-[12px]"><div><dt className="text-muted-foreground">QID expires</dt><dd>{date(c.qidExpiry)}</dd></div>{!c.isQatari ? <div><dt className="text-muted-foreground">Passport expires</dt><dd>{date(c.passportExpiry)}</dd></div> : null}<div><dt className="text-muted-foreground">Current account</dt><dd>{c.hasCurrentAccount ? 'yes' : 'no'}</dd></div><div><dt className="text-muted-foreground">Last check</dt><dd>{d.eligibility ? (d.eligibility.eligible ? `eligible ${qar(d.eligibility.amount)}` : `not eligible: ${d.eligibility.reason_codes.join(', ')}`) : '—'}</dd></div></dl>
-        {kase ? <p className="mt-2 text-[12px]">Open case <button type="button" className="font-mono text-primary" onClick={() => openCase(kase.ref)}>{kase.ref}</button> · <StatusChip status={kase.state} /> · {kase.attempts}/{kase.max_attempts} notices</p> : <p className="mt-2 text-[12px] text-muted-foreground">No open case.</p>}
+        <p className="text-sm font-medium" title={c.id}>{c.nameEn} <span className="ar text-muted-foreground">{c.nameAr}</span></p>
+        <p className="mt-0.5 text-[12px] text-muted-foreground">{title(c.segment)} · {c.app ? 'uses the app' : 'no app, so e-mail and SMS only'}{c.marketing ? '' : ' · no marketing consent'}{c.dnc ? <span className="text-danger"> · do not contact</span> : null}</p>
+        <dl className="mt-2 grid grid-cols-2 gap-2 text-[12px]"><div><dt className="text-muted-foreground">QID expires</dt><dd>{date(c.qidExpiry)}</dd></div>{!c.isQatari ? <div><dt className="text-muted-foreground">Passport expires</dt><dd>{date(c.passportExpiry)}</dd></div> : null}<div><dt className="text-muted-foreground">Current account</dt><dd>{c.hasCurrentAccount ? 'yes' : 'no'}</dd></div><div><dt className="text-muted-foreground">Last check</dt><dd>{d.eligibility ? (d.eligibility.eligible ? `eligible for ${qar(d.eligibility.amount)}` : `not eligible: ${d.eligibility.reason_codes.map((r: string) => String(REASON_LABEL[r] ?? r).replace(/^[A-Z](?=[a-z])/, (c) => c.toLowerCase())).join(', ')}`) : '—'}</dd></div></dl>
+        {kase ? <p className="mt-2 text-[12px]"><button type="button" className="text-primary" title={kase.ref} onClick={() => openCase(kase.ref)}>Open the case</button> · <StatusChip status={kase.state} /> · {kase.attempts} of {kase.max_attempts} notices sent</p> : <p className="mt-2 text-[12px] text-muted-foreground">No open case.</p>}
         <p className="mt-2 flex flex-wrap gap-2 text-[12px]"><button type="button" className="text-primary" onClick={() => go('customers', c.id)}>Customer 360</button><button type="button" className="text-primary" onClick={() => go('comms', `mailbox=${c.id}`)}>Mailbox</button><button type="button" className="text-primary" onClick={() => go('comms', `customer=${c.id}`)}>All messages</button></p>
       </Panel>
-      <Panel icon={<Upload size={16} />} title="What happens when the customer uploads">
-        <ol className="list-decimal space-y-1 ps-4 text-[12px]"><li>The upload is an app event: <span className="font-mono">POST /api/customer/{'{id}'}/upload</span>, assurance "app upload" (an RM-collected scan is "RM scan"; e-mail is lowest).</li><li>Mustaqbil matches it to the open case and classifies it (document).</li><li>Fahis extracts the fields — with Claude (vision for a real image, text for a specimen) or Offline from the specimen's data — verifies number, name, expiry, MRZ, and proposes the update with its confidence.</li><li>The checker approves or rejects in the Inbox; Muhaddith writes; Muahil re-qualifies; the One Click offer lands here.</li></ol>
+      <Panel icon={<Upload size={16} />} title="What an upload sets off">
+        <p className="text-[13px]">Fahis reads it, a checker approves it, the record is written and the offer comes back to this phone.</p>
+        <details className="group mt-1"><summary className="cursor-pointer list-none text-[12px] text-muted-foreground hover:text-foreground">How it runs ▸</summary>
+        <ol className="mt-2 list-decimal space-y-1 ps-4 text-[12px]"><li>The upload is an app event: <span className="font-mono">POST /api/customer/{'{id}'}/upload</span>, assurance "app upload" (an RM-collected scan is "RM scan"; e-mail is lowest).</li><li>Mustaqbil matches it to the open case and classifies it (document).</li><li>Fahis extracts the fields — with Claude (vision for a real image, text for a specimen) or Offline from the specimen's data — verifies number, name, expiry, MRZ, and proposes the update with its confidence.</li><li>The checker approves or rejects in the Inbox; Muhaddith writes; Muahil re-qualifies; the One Click offer lands here.</li></ol></details>
         {msg ? <Note>{msg}</Note> : null}
       </Panel>
     </>}>{phone}</PageColumns>;

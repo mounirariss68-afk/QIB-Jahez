@@ -56,6 +56,16 @@ Class A, ask the customer: missing or low salary credits, missing employer, stan
 
 Raqib (scan and data health) · Munadi (outreach planning) · Mustaqbil (inbound triage) · Fahis (document examiner) · Muhaddith (record updater, maker-checker) · Muwathiq (employer verification pack) · Muahil (re-qualify and hand off to One Click) · Munabbih (early arrears) · Hami (the policy guard every message passes) · Dalil (the chat agent). Each has an autonomy rung per segment (A1 prepares, A2 recommends, A3 acts within policy); the Agents screen shows the rung, the functions, the clauses it cites and its trail.
 
+## Verification and deviations
+
+Last verified 29 October 2026, on the built-in database, Offline: typecheck clean; `npm run check` 21 of 21; the screen lint (`npm run check:screens`) clean on 16 screens; every scenario, every step, twice through the Director with each step's screen opened (`npm run check:scenarios`, 37 steps × 2, no failure, no page error); Present mode played end to end with the arrow key (`npm run check:play`, no page error); every screen screenshotted and looked at (`design/screens-review.md`).
+
+Deviations from CogniPulse, each a harvest for CogniPulse:
+- `packages/design-system/src/components/layout/composition.tsx` (the two-line panel title) and `title-bar.tsx` (no theme toggle in the title bar) are Jahiz's own versions, kept by the update script.
+- The Demo control is Jahiz's own: CogniPulse's `<DemoControl>` has no sub-menus (stories, persona, clock); Jahiz copies its OFFLINE mark.
+- Drawn in `app/viz.tsx` because CogniPulse's pictures lack them: the salary columns with a gap mark (Columns has none), the rule strip with a failing tone (Segments has none).
+- The Waterfall cuts labels longer than its band, so the Overview's step labels are kept to sixteen characters; `AgentCard` prints the rung code in its chip, so the Agents screen is excepted from the screen lint with the Audit trail (the two How it works screens where the rungs and clauses are the point).
+
 ## Project layout
 
 ```
@@ -65,16 +75,18 @@ apps/server            Express 5 API, workflow engine, agents, channels, custome
   src/agents/             one file per agent
   src/seed/               generator, edge cases, sixty-day replay, seeded-state snapshot
   src/tools/check-world.ts  `npm run check`: 21 arithmetic and policy checks over the live world
-apps/web               React 19 / Vite 7 / Tailwind 4 on the Cognirise Atelier design system
+apps/web               React 19 / Vite 7 / Tailwind 4 on the CogniPulse design system
   src/App.tsx             the shell: the three lenses and the four-element title bar (MENU-DISCIPLINE)
-  src/app/demo-control.tsx  the Demo control: the rig, in one place beside the person
-  src/app/case.tsx        the case as a decision card and one disclosure (SCREEN-DISCIPLINE)
-  src/app/viz.tsx         Jahiz's pictures on Atelier's viz library: the readiness bar, the case clock, the notices, the rule dots, the salary columns
+  src/app/demo-control.tsx  the Demo control: the rig, in one place beside the person; reads OFFLINE when Claude is not connected
+  src/app/case.tsx        the case as a decision card and one disclosure (SCREEN-DISCIPLINE), the decision pinned at the foot
+  src/app/viz.tsx         Jahiz's own pictures on CogniPulse's viz: the case clock, the rule strip, the salary columns, the notices-and-replies time line
 apps/mobile            QIB Mobile (demo): Expo SDK 57 app for Expo Go, standalone package (own node_modules), talks to /api/mobile
 packages/domain        reasons, eligibility, policy catalogue, calendar, guard, templates, agents, workflows, personas, scenarios
-packages/design-system Atelier, rebranded for QIB; src/viz is the picture library (segments, clock bars, bullets, dots, columns, slopes, heat cells)
+packages/design-system CogniPulse 22005ca1, rebranded for QIB (brought in by CogniPulse's update script, never edited here)
 design/menu-review.md  how the menu was reviewed against MENU-DISCIPLINE, and what it became
-design/ux-review.md    how every screen was reviewed against SCREEN-DISCIPLINE and SCREEN-COMPOSITION, and the blocks of work
+design/ux-review.md    how every screen was reviewed against SCREEN-DISCIPLINE, VISUAL-VOCABULARY and MENU-DISCIPLINE, and the order of work
+design/screens-review.md  every after-screenshot looked at, what was wrong and what was fixed
+tools/shots.mjs, tools/checks.mjs  screenshots, the screen lint, every scenario twice and the play, each starting and stopping its own server
 db/schema.sql          core (simulated bank) and layer (the agentic layer)
 design/DESIGN.md       the design (v2); research/ the regulatory and practice notes it rests on
 ```

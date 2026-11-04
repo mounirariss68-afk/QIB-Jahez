@@ -1,23 +1,57 @@
 /**
- * PostgreSQL access. On Replit the database is provisioned from the Database
- * tool and its URL arrives as DATABASE_URL; locally the same variable is used.
+ * PostgreSQL access, the one file that knows where the database is. On Replit
+ * the database comes from the Replit prompt and its URL arrives as
+ * DATABASE_URL. Without it (the owner's Mac) the server uses a built-in
+ * PostgreSQL (PGlite) kept in `.data/` at the repo root.
  * Two schemas: `core` (the simulated bank) and `layer` (Jahiz). One bank, so
  * no schema routing (unlike Tasama HR's multi-client layout).
  */
 import pg from 'pg';
+import { mkdirSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// Dates come back as 'YYYY-MM-DD' strings, numerics as JS numbers, with either driver.
+const PARSERS = { 1082: (v: string) => v, 1700: (v: string) => (v === null ? null : Number(v)), 20: (v: string) => (v === null ? null : Number(v)) };
+
+/** The built-in database: one connection, so transactions are taken one at a time. */
+async function builtIn(): Promise<pg.Pool> {
+  const { PGlite } = await import('@electric-sql/pglite');
+  const dir = resolve(dirname(fileURLToPath(import.meta.url)), '../../../.data/pglite');
+  mkdirSync(dir, { recursive: true });
+  const db = new PGlite(dir, { parsers: PARSERS as any });
+  const run = async (sql: string, params?: unknown[]) => {
+    try { const r = await db.query(sql, params as any[]); return { rows: r.rows as any[], rowCount: r.affectedRows ?? r.rows.length }; }
+    catch (e: any) {
+      // A script of several statements (the schema) runs as one exec.
+      if (!params?.length && /multiple commands/i.test(String(e?.message))) { await db.exec(sql); return { rows: [], rowCount: 0 }; }
+      throw e;
+    }
+  };
+  let lock: Promise<void> = Promise.resolve();
+  return {
+    query: run,
+    connect: async () => {
+      let free!: () => void;
+      const prev = lock;
+      lock = new Promise<void>((r) => { free = r; });
+      await prev;
+      return { query: run, release: () => free() };
+    },
+    end: () => db.close(),
+  } as unknown as pg.Pool;
+}
 
 const url = process.env.DATABASE_URL;
-if (!url) {
-  console.error('\nDATABASE_URL is not set.\nOn Replit: open the Database tool, create a PostgreSQL database, then press Run again.\nLocally: export DATABASE_URL=postgres://user:pass@localhost:5432/jahiz\n');
-  process.exit(1);
+if (url) {
+  pg.types.setTypeParser(1082, PARSERS[1082]);
+  pg.types.setTypeParser(1700, PARSERS[1700] as any);
+  pg.types.setTypeParser(20, PARSERS[20] as any);
+} else {
+  console.log('DATABASE_URL is not set: using the built-in database in .data/ (on Replit the database comes from the Replit prompt).');
 }
-const needsSsl = /neon\.tech|replit|sslmode=require/.test(url);
-export const pool = new pg.Pool({ connectionString: url, ssl: needsSsl ? { rejectUnauthorized: false } : undefined, max: 10 });
-
-// Dates come back as 'YYYY-MM-DD' strings, numerics as JS numbers.
-pg.types.setTypeParser(1082, (v) => v);
-pg.types.setTypeParser(1700, (v) => (v === null ? null : Number(v)));
-pg.types.setTypeParser(20, (v) => (v === null ? null : Number(v)));
+const needsSsl = /neon\.tech|replit|sslmode=require/.test(url ?? '');
+export const pool: pg.Pool = url ? new pg.Pool({ connectionString: url, ssl: needsSsl ? { rejectUnauthorized: false } : undefined, max: 10 }) : await builtIn();
 
 export type Q = { query: <T = any>(sql: string, params?: unknown[]) => Promise<{ rows: T[]; rowCount: number | null }> };
 

@@ -1,4 +1,4 @@
-# Atelier Design System
+# CogniPulse Design System
 
 The shared visual language, default app layout and component library behind
 Cognirise-built applications. Every app starts as a copy of this directory,
@@ -14,6 +14,7 @@ then gets rebranded for its client.
 - `src/components/layout/` — the default app layout: shell, backdrop, title
   bar, lens picker, theme selector, page hero, container, chat rail, composer
 - `src/components/ui/` — themed shadcn component library
+- `src/components/viz/` — decision pictures: small exact charts on the tokens (`@cognirise/cognipulse/viz`, see `docs/VIZ.md`)
 - `src/preview/` — living style guide
 - `public/brand/` — the client-swappable brand assets
 - `docs/` — the layout contract, the rebranding procedure, platform guides
@@ -48,9 +49,9 @@ Comfortaa over Inter.
 ## Using it in a web app
 
 ```tsx
-import "@cognirise/atelier/styles.css";
-import { AppShell, ThemeProvider } from "@cognirise/atelier/layout";
-import { Button } from "@cognirise/atelier/components/ui/button";
+import "@cognirise/cognipulse/styles.css";
+import { AppShell, ThemeProvider } from "@cognirise/cognipulse/layout";
+import { Button } from "@cognirise/cognipulse/components/ui/button";
 ```
 
 See `docs/consuming-web.md` for the full setup and `docs/LAYOUT.md` for the
@@ -72,6 +73,25 @@ npm run tokens
 
 Never hand-edit `src/index.css` or `src/generated/tokens.tsx`; both are
 generated, and the dev server regenerates them on change.
+
+## Keeping a prototype on the latest CogniPulse
+
+Each prototype carries its own copy of CogniPulse in `packages/design-system`,
+rebranded. To bring that copy up to this CogniPulse without touching the client's
+brand:
+
+```bash
+node scripts/update-prototype.mjs ~/Documents/GitHub/<Repo>
+```
+
+It copies everything except `tokens.json`, `public/` and the generated files,
+regenerates those from the client's tokens, deletes nothing, lists what the
+prototype has that CogniPulse does not, and stamps `packages/design-system/COGNIPULSE.json`
+with the date, a fingerprint and the hash of every file it wrote. A file the
+prototype changed itself is kept and listed, never overwritten: what it
+improves goes into CogniPulse first, then `--take-cognipulse` takes CogniPulse's. CogniLab
+runs it from the prototype's page ("Take the latest CogniPulse"); after it,
+`npm install` and the typecheck.
 
 ## Scope
 

@@ -1,8 +1,8 @@
 /** Shared pieces used across screens. Compose from Atelier; nothing here re-styles it. */
 import type { ReactNode } from 'react';
-import { DemoBanner, DemoReference, AgentAutonomyChip, AgentAvatar, type AgentAutonomy } from '@cognirise/atelier/archetypes';
-import { PageContainer, PageHero } from '@cognirise/atelier/layout';
-import { cn } from '@cognirise/atelier/lib/utils';
+import { DemoBanner, DemoReference, AgentAutonomyChip, AgentAvatar, type AgentAutonomy } from '@cognirise/cognipulse/archetypes';
+import { PageContainer, PageHero } from '@cognirise/cognipulse/layout';
+import { cn } from '@cognirise/cognipulse/lib/utils';
 import { REASONS } from '@jahiz/domain/reasons';
 import { ChevronRight } from 'lucide-react';
 import { initials } from '../lib/format';
@@ -156,25 +156,31 @@ export function LandingHero({ eyebrow, title, meta, actions, feature, children }
     </section>
   );
 }
-/** The page hero; while the Director runs it collapses to one band so the content a step points at is in view. */
+/**
+ * A work screen's heading (29 Oct 2026): the screen's name, its claim at 22px
+ * with the number in it, one factual line, the actions — never the island
+ * hero, which is kept for Present. While the Director runs the line goes, so
+ * the content a step points at is in view.
+ */
 export function Hero(props: Parameters<typeof PageHero>[0]) {
   const { director } = useApp();
-  if (!director) return <PageHero {...props} />;
   return (
-    <div className="rounded-2xl border border-border/70 bg-card/60 px-5 py-3">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+    <header className="px-1 pt-1">
+      <div className="flex flex-wrap items-end gap-x-5 gap-y-2">
         <div className="min-w-0 flex-1">
-          {props.eyebrow ? <p className="eyebrow">{props.eyebrow}</p> : null}
-          <h1 className="truncate text-xl font-semibold leading-tight">{props.title}</h1>
+          {props.eyebrow ? <p className="text-[12px] text-muted-foreground">{props.eyebrow}</p> : null}
+          <h1 className="mt-0.5 text-[22px] font-semibold leading-tight tracking-tight">{props.title}</h1>
+          {props.lede && !director ? <p className="mt-1 max-w-[72rem] text-[13px] leading-snug text-muted-foreground">{props.lede}</p> : null}
         </div>
         {props.actions ? <div className="flex flex-wrap items-center gap-2">{props.actions}</div> : null}
       </div>
-      {props.children ? <div className="mt-2">{props.children}</div> : null}
-    </div>
+      {props.children ? <div className="mt-3">{props.children}</div> : null}
+    </header>
   );
 }
 export { PageContainer };
-export function SourceStamp({ resource }: { resource: string }) { return <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Source: core banking (simulated) · {resource}</span>; }
+/** Where a panel's figures come from, in words: the core's table names with their underscores read as spaces, the table names themselves in the hover. */
+export function SourceStamp({ resource }: { resource: string }) { return <span className="text-[11px] text-muted-foreground" title={resource}>From the core bank (simulated): {resource.replace(/_/g, ' ')}</span>; }
 export function Tabs({ tabs, value, onChange }: { tabs: { id: string; label: ReactNode; n?: number }[]; value: string; onChange: (id: string) => void }) {
   return (
     <div className="flex flex-wrap gap-1 rounded-full border border-border/70 bg-card/40 p-1">

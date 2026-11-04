@@ -1,5 +1,5 @@
 /**
- * The Atelier layout system — the default shell every app is built on.
+ * The CogniPulse layout system — the default shell every app is built on.
  * See docs/LAYOUT.md for the contract and a copy-paste starting point.
  */
 export { AppShell, MainPanel } from './app-shell';

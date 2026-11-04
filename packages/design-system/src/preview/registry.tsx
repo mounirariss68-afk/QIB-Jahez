@@ -49,6 +49,9 @@ const CarouselDemo = lazyPage(() =>
 const ChartDemo = lazyPage(() =>
   import('./demos/chart').then(({ ChartDemo }) => ChartDemo),
 );
+const VizDemo = lazyPage(() =>
+  import('./demos/viz').then(({ VizDemo }) => VizDemo),
+);
 const CheckboxDemo = lazyPage(() =>
   import('./demos/checkbox').then(({ CheckboxDemo }) => CheckboxDemo),
 );
@@ -190,9 +193,9 @@ export type NavGroup = {
 };
 
 export const DESIGN_SYSTEM = {
-  title: 'Cognirise Atelier',
+  title: 'CogniPulse',
   description:
-    'The Cognirise visual language extracted from the Atelier employee portal: deep-navy glassmorphism, the blue→purple→magenta→coral accent gradient, and Comfortaa headings over Inter body text — as reusable tokens, components, and patterns.',
+    'The Cognirise visual language extracted from the CogniPulse employee portal: deep-navy glassmorphism, the blue→purple→magenta→coral accent gradient, and Comfortaa headings over Inter body text — as reusable tokens, components, and patterns.',
 } as const;
 
 export const OVERVIEW_ENTRY: PreviewEntry = {
@@ -205,9 +208,9 @@ export const OVERVIEW_ENTRY: PreviewEntry = {
 const BrandDemo = lazyPage(() =>
   import('./demos/brand').then(({ BrandDemo }) => BrandDemo),
 );
-const AtelierPatternsDemo = lazyPage(() =>
-  import('./demos/atelier-patterns').then(
-    ({ AtelierPatternsDemo }) => AtelierPatternsDemo,
+const CogniPulsePatternsDemo = lazyPage(() =>
+  import('./demos/cognipulse-patterns').then(
+    ({ CogniPulsePatternsDemo }) => CogniPulsePatternsDemo,
   ),
 );
 const AppShellDemo = lazyPage(() =>
@@ -231,6 +234,9 @@ const WorkflowsArchetypeDemo = lazyPage(() =>
 const ScenariosArchetypeDemo = lazyPage(() =>
   import('./demos/archetypes').then(({ ScenariosArchetypeDemo }) => ScenariosArchetypeDemo),
 );
+const DemoKitDemo = lazyPage(() =>
+  import('./demos/demo-kit').then(({ DemoKitDemo }) => DemoKitDemo),
+);
 const SettingsArchetypeDemo = lazyPage(() =>
   import('./demos/archetypes').then(({ SettingsArchetypeDemo }) => SettingsArchetypeDemo),
 );
@@ -247,11 +253,11 @@ export const NAV_GROUPS: NavGroup[] = [
         Page: BrandDemo,
       },
       {
-        id: 'atelier-patterns',
+        id: 'cognipulse-patterns',
         name: 'Glass patterns',
         description:
           'Glassmorphism surfaces, the dark-island hero, and editorial primitives.',
-        Page: AtelierPatternsDemo,
+        Page: CogniPulsePatternsDemo,
       },
       {
         id: 'app-shell',
@@ -346,6 +352,13 @@ export const NAV_GROUPS: NavGroup[] = [
         description:
           'App settings, and the persona switcher that changes the inbox, the workspace owner and what may be approved.',
         Page: SettingsArchetypeDemo,
+      },
+      {
+        id: 'archetype-demo-kit',
+        name: 'Demo control, confirm card, proof',
+        description:
+          'The rig in one title-bar menu, the assistant\'s card before a write, and the one collapsed disclosure that holds the proof.',
+        Page: DemoKitDemo,
       },
     ],
   },
@@ -705,6 +718,12 @@ export const NAV_GROUPS: NavGroup[] = [
         name: 'Chart',
         description: 'Configured data visualization, tooltip, and legend.',
         Page: ChartDemo,
+      },
+      {
+        id: 'viz',
+        name: 'Decision pictures',
+        description: 'Small exact charts for the decision a screen carries: periods, limits, thresholds, stages, deadlines, shares, before and now, flows, ranks, peaks, spread and connections.',
+        Page: VizDemo,
       },
     ],
   },

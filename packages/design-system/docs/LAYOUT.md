@@ -1,9 +1,9 @@
 # The default page layout
 
-Every Atelier app uses this frame. It is not a starting suggestion — it is the
+Every CogniPulse app uses this frame. It is not a starting suggestion — it is the
 layout, and an app departs from it only for a stated reason. It ships as real
 components under `src/components/layout/`, exported from
-`@cognirise/atelier/layout`, so apps compose it rather than rebuild it.
+`@cognirise/cognipulse/layout`, so apps compose it rather than rebuild it.
 
 ## The frame
 
@@ -28,8 +28,8 @@ Content never sits directly on the backdrop — it sits on glass surfaces
 
 ```tsx
 // main.tsx
-import "@cognirise/atelier/styles.css";
-import { ThemeProvider } from "@cognirise/atelier/layout";
+import "@cognirise/cognipulse/styles.css";
+import { ThemeProvider } from "@cognirise/cognipulse/layout";
 
 createRoot(root).render(
   <ThemeProvider>
@@ -43,7 +43,7 @@ createRoot(root).render(
 <script>
   (function () {
     try {
-      var m = localStorage.getItem("atelier-theme") || "system";
+      var m = localStorage.getItem("cognipulse-theme") || "system";
       var d = m === "dark" || (m === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
       document.documentElement.classList.toggle("dark", d);
       document.documentElement.style.colorScheme = d ? "dark" : "light";
@@ -60,7 +60,7 @@ script from JS (Next.js `app/layout.tsx`, for instance).
 import {
   AppShell, ChatComposer, ChatRail, ContextNav, LensPicker,
   PageContainer, PageHero, PageSection, TitleBar, Wordmark, useChatRail,
-} from "@cognirise/atelier/layout";
+} from "@cognirise/cognipulse/layout";
 
 export default function App() {
   const rail = useChatRail();
@@ -146,7 +146,7 @@ sections. Two tones:
   views, and whenever the hero carries `media`.
 
 A hero that is only eyebrow + headline + lede is the most common way an
-Atelier app ends up looking thin. Two slots fix that:
+CogniPulse app ends up looking thin. Two slots fix that:
 
 - **`media`** — the product's signature visual, bleeding to the right edge and
   hidden below `lg`. Build one per app: a radar sweep, a map, a network, an
@@ -253,7 +253,7 @@ the nav falls back to horizontal without discarding the preference.
 Design the menu around the five questions every agentic prototype has to
 answer — what is waiting on me, what is the work, who is doing it, how does it
 work, who am I and what may I approve — not around a fixed list of labels. The
-components that answer them live in `@cognirise/atelier/archetypes`.
+components that answer them live in `@cognirise/cognipulse/archetypes`.
 
 **Read `docs/ARCHETYPES.md` before designing a menu.** It gives the default
 screens, and says when to merge two of them, split one, or add the product's own
@@ -261,6 +261,17 @@ object as a sixth. Merging and adding are normal. What is not negotiable is that
 each of the five questions is answered somewhere.
 - Each pane carries a 1px top sheen (`--glass-sheen`). It is what separates
   "translucent rectangle" from "sheet of glass".
+
+### The hero island is not a glass level
+
+`.page-hero tone="island"` re-declares the core tokens to the client's deep
+brand surface and must hold it in **both** themes, whatever is behind it. It
+therefore sits at `--glass-hero-alpha`, which is high (90%+) rather than in the
+L1–L3 range. At a low fill it can only read as the brand where the backdrop
+happens to be dark already; over a light backdrop it renders as a pale wash
+carrying near-white text, which is unreadable. It is still glass — the blur, the
+sheen and the backdrop movement through it are unchanged — but it is opaque
+enough to be the surface it claims to be. Found on Tasama Ascend, 17 Sep 2026.
 
 Reduced-transparency and no-`backdrop-filter` fallbacks re-opaque every level
 automatically; nothing in an app needs to handle that.
@@ -288,7 +299,7 @@ stays aligned with the rail's brand card at every scroll position. Do not add
 
 Everything above is the frame. This section is what goes inside it, and it
 matters more: an app built only from the frame comes out correct and empty.
-The components here live in `@cognirise/atelier/layout` alongside the shell.
+The components here live in `@cognirise/cognipulse/layout` alongside the shell.
 
 ### The anatomy of a product page
 

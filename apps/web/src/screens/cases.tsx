@@ -1,61 +1,136 @@
 /**
- * Cases — "Which cases need a nudge today?" A masthead with the count and
- * the state most of them are in, four tiles, and rows that say who, why (in
- * words), what happens next (a clock) and how many chances the customer has
- * had (dots). The drawer opens the same decision card as the Inbox.
+ * Cases — "Which cases need a nudge today, and who has each?" Lanes by where
+ * a case waits (a date or the nightly check · the customer · a person · done),
+ * each card the person, what stands in the way in words and its time bar;
+ * the sixty days of the same lanes as a cumulative flow in the heading band,
+ * where work piles up drawn in the warning tone. The case opens in the drawer
+ * (the same decision card as the Inbox).
  */
-import { useEffect, useState } from 'react';
-import { Panel, StatTile } from '@cognirise/atelier/layout';
-import { ClockBar } from '@cognirise/atelier/viz';
-import { Briefcase } from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { WorkItemCard, WorkspaceLane, WorkspaceLanes, WorkspaceLayout } from '@cognirise/cognipulse/archetypes';
+import { CumulativeFlow, TimeBar, flowBottleneck } from '@cognirise/cognipulse/viz';
+import { CalendarClock, CheckCircle2, MessageSquare, UserRound } from 'lucide-react';
 import { useApi } from '../lib/api';
 import { date, num, rel, title } from '../lib/format';
 import { useApp, useFlash } from '../app/state';
-import { Btn, Chip, ClassWord, Empty, Masthead, ReasonChip, Screen, SegChip, Select, StatusChip, Table, CLASS_LABEL, PERSONA_SHORT } from '../app/ui';
+import { Chip, Empty, Hero, Screen, Select, CLASS_LABEL, PERSONA_SHORT, REASON_LABEL, SEG } from '../app/ui';
 import { Notices } from '../app/viz';
+
+type LaneId = 'date' | 'customer' | 'person' | 'done';
+const LANES: { id: LaneId; label: string; caption: string; icon: ReactNode }[] = [
+  { id: 'date', label: 'Waiting on a date', caption: 'A re-check, a cooling period or the nightly scan comes back to it.', icon: <CalendarClock size={15} /> },
+  { id: 'customer', label: 'Waiting on the customer', caption: 'A notice is out; the next goes on its date unless they reply.', icon: <MessageSquare size={15} /> },
+  { id: 'person', label: 'Waiting on a person', caption: 'A decision sits in someone\'s inbox; the soonest due first.', icon: <UserRound size={15} /> },
+  { id: 'done', label: 'Done or handed on', caption: 'Cured, re-qualified, closed or with Collections; the latest first.', icon: <CheckCircle2 size={15} /> },
+];
+
+/** Late, due today, due in n days: the turnaround in words. */
+const dueWord = (due: string | null | undefined, now: string): { word: string; tone?: 'danger' | 'warn' } => {
+  if (!due) return { word: 'no date' };
+  const days = Math.ceil((new Date(due).getTime() - new Date(now).getTime()) / 86400000);
+  if (days < 0) return { word: `${-days} day${days === -1 ? '' : 's'} late`, tone: 'danger' };
+  if (days === 0) return { word: 'due today', tone: 'warn' };
+  return { word: `in ${days} day${days === 1 ? '' : 's'}` };
+};
 
 export function CasesScreen() {
   const { route, openCase, session } = useApp();
-  const [q, setQ] = useState(''); const [state, setState] = useState(''); const [cls, setCls] = useState(''); const [segment, setSegment] = useState(''); const [open, setOpen] = useState('1'); const [page, setPage] = useState(0);
+  const [q, setQ] = useState(''); const [cls, setCls] = useState(''); const [segment, setSegment] = useState(''); const [reason, setReason] = useState('');
   useEffect(() => { if (route.param && /^DEMO-CASE/i.test(route.param)) openCase(route.param.toUpperCase()); }, [route.param, openCase]);
-  const qs = new URLSearchParams({ q, state, cls, segment, open, page: String(page), size: '40' }).toString();
-  const { data, error } = useApi<any>(`/cases?${qs}`, { poll: 12000 });
-  const counts = (data?.counts ?? []) as { state: string; cls: string; n: number }[];
-  const openN = counts.filter((c) => c.state !== 'CLOSED').reduce((s, c) => s + c.n, 0);
-  const byState = Object.entries(counts.filter((c) => c.state !== 'CLOSED').reduce((m: Record<string, number>, c) => { m[c.state] = (m[c.state] ?? 0) + c.n; return m; }, {})).sort((a, b) => b[1] - a[1]);
-  const now: string | undefined = data?.now ?? session?.clock.now;
-  const due: number = data?.due ?? 0, onPerson: number = data?.onPerson ?? 0;
+  const qs = new URLSearchParams({ q, cls, segment, reason, size: '25' }).toString();
+  const { data, error } = useApi<any>(`/cases/board?${qs}`, { poll: 12000 });
+  const { data: reasons } = useApi<any>('/reasons');
   if (error) return <Empty>{error}</Empty>;
+  const now: string = data?.now ?? session?.clock.now ?? new Date().toISOString();
+  const lanes: Record<string, { n: number; rows: any[] }> = Object.fromEntries((data?.lanes ?? []).map((l: any) => [l.id, l]));
+  const open = (['date', 'customer', 'person'] as LaneId[]).reduce((s, id) => s + (lanes[id]?.n ?? 0), 0);
+  const states = LANES.map((l) => ({ id: l.id, label: l.label.replace('Waiting on ', 'on ').toLowerCase() }));
+  const flow = data?.flow ?? [];
+  const neck = flowBottleneck(states, flow, 14);
+  const late = (lanes.person?.rows ?? []).filter((k) => k.sla_due && new Date(k.sla_due) < new Date(now)).length;
+  const claim = !data ? 'Cases' : open
+    ? `${num(lanes.person?.n ?? 0)} of ${num(open)} open cases wait on a person${late ? `; ${num(late)} of them are late` : ''}`
+    : 'No open cases in your scope';
+  const meta = !data ? undefined : open
+    ? `${num(lanes.customer?.n ?? 0)} wait on the customer, ${num(lanes.date?.n ?? 0)} on a date or the nightly check${neck ? ` · in the last two weeks the cases ${neck.label} grew by ${num(neck.growth)}` : ''}`
+    : 'The nightly scan opens a case for every customer who falls out of the offer and can be helped back in.';
   return (
-    <Screen hero={<Masthead eyebrow="Cases · in your scope" title={openN ? `${num(openN)} open cases in your scope; ${due ? `${num(due)} ${due === 1 ? 'is' : 'are'} due a step now` : 'none is due a step right now'}` : 'No open cases in your scope'} meta={openN ? `${num(onPerson)} wait on a person's decision · the rest wait on the customer, a re-check date or the nightly scan · open a case for the decision and the proof behind it` : 'The nightly scan opens a case for every customer who falls out of the offer and can be helped back in.'} />}>
-      <div className="rounded-xl glass-l2 p-3"><div className="grid gap-3 sm:grid-cols-4">{byState.slice(0, 4).map(([s, n]) => <StatTile key={s} label={title(s)} value={num(n)} />)}</div></div>
-      <div className="flex flex-wrap items-center gap-2">
-        <input className="input" placeholder="Name or case" value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} />
-        <Select value={open} onChange={(v) => { setOpen(v); setPage(0); }}><option value="1">Open</option><option value="0">Closed</option><option value="">All</option></Select>
-        <Select value={state} onChange={(v) => { setState(v); setPage(0); }}><option value="">Every state</option>{byState.map(([s]) => <option key={s} value={s}>{title(s)}</option>)}{open !== '1' ? <option value="CLOSED">Closed</option> : null}</Select>
-        <Select value={cls} onChange={(v) => { setCls(v); setPage(0); }}><option value="">Whatever stands in the way</option>{Object.entries(CLASS_LABEL).map(([c, l]) => <option key={c} value={c}>{l}</option>)}</Select>
-        <Select value={segment} onChange={(v) => { setSegment(v); setPage(0); }}><option value="">Every segment</option><option value="VVIP">VVIP</option><option value="HNWI">HNWI</option><option value="HIGH_VALUE">High Value</option><option value="MASS">Mass</option></Select>
-      </div>
-      <Panel icon={<Briefcase size={16} />} title={`${num(data?.total ?? 0)} match`} action={<span className="text-[12px] text-muted-foreground">page {page + 1}</span>}>
-        <Table><thead><tr><th>Customer</th><th>What stands in the way</th><th>What to do</th><th>State</th><th>Notices</th><th>Next step</th><th>Waiting on</th></tr></thead>
-          <tbody>{(data?.rows ?? []).map((k: any) => <CaseRow key={k.id} k={k} now={now} onOpen={() => openCase(k.ref)} />)}</tbody></Table>
-        {!data?.rows?.length ? <Empty>No cases match.</Empty> : null}
-        <div className="mt-3 flex items-center gap-2"><Btn small onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}>Previous</Btn><Btn small onClick={() => setPage((p) => p + 1)} disabled={(page + 1) * 40 >= (data?.total ?? 0)}>Next</Btn></div>
-      </Panel>
+    <Screen hero={<Hero eyebrow="Cases in your scope" title={claim} lede={meta} />}>
+      <WorkspaceLayout
+        header={flow.length > 1 ? (
+          // The flow at its own size (its labels scale with its width), and beside it each lane today against two weeks ago.
+          <div className="grid gap-x-6 gap-y-2 rounded-xl glass-l2 px-4 py-3 lg:grid-cols-[minmax(0,600px)_minmax(0,1fr)]">
+            <div>
+              <p className="text-[12px] text-muted-foreground">Open cases by where they waited, the last sixty days</p>
+              <CumulativeFlow states={states} days={flow} height={130} format={(v) => num(v)} className="mt-1" />
+            </div>
+            <div className="self-center">
+              <p className="text-[12px] text-muted-foreground">Today, against two weeks ago</p>
+              <ul className="mt-2 space-y-1.5 text-[13px]">{states.map((st) => {
+                const nowN = flow[flow.length - 1]?.counts[st.id] ?? 0; const then = flow[Math.max(0, flow.length - 15)]?.counts[st.id] ?? 0; const d = nowN - then;
+                return <li key={st.id} className={`flex items-baseline gap-2 ${neck?.id === st.id ? 'text-warn' : ''}`}><span className="min-w-0 flex-1">{st.label.replace(/^./, (c: string) => c.toUpperCase())}</span><span className="tabular-nums font-medium">{num(nowN)}</span><span className="w-16 text-end tabular-nums text-[12px] text-muted-foreground">{d ? `${d > 0 ? '+' : '−'}${num(Math.abs(d))}` : 'same'}</span></li>;
+              })}</ul>
+              {neck ? <p className="mt-2 text-[12px] text-warn">Piling up: the cases {neck.label}</p> : null}
+            </div>
+          </div>
+        ) : undefined}
+        summary={
+          <div className="flex flex-wrap items-center gap-2">
+            <input className="input h-9 w-56" placeholder="Find a customer" value={q} onChange={(e) => setQ(e.target.value)} />
+            <Select value={cls} onChange={setCls} className="h-9"><option value="">Whatever stands in the way</option>{Object.entries(CLASS_LABEL).map(([c, l]) => <option key={c} value={c}>{l}</option>)}</Select>
+            <Select value={reason} onChange={setReason} className="h-9"><option value="">Every reason</option>{(reasons?.reasons ?? []).map((r: any) => <option key={r.code} value={r.code}>{r.label}</option>)}</Select>
+            <Select value={segment} onChange={setSegment} className="h-9"><option value="">Every segment</option><option value="VVIP">VVIP</option><option value="HNWI">HNWI</option><option value="HIGH_VALUE">High Value</option><option value="MASS">Mass</option></Select>
+          </div>
+        }>
+        <WorkspaceLanes className="lg:grid-cols-4">
+          {LANES.map((l) => {
+            const lane = lanes[l.id]; const rows = lane?.rows ?? [];
+            return (
+              <WorkspaceLane key={l.id} icon={l.icon} title={l.label} count={lane?.n} caption={l.caption} tone={l.id === 'person' ? 'accent' : 'default'} emptyState={<p className="px-1 py-4 text-center text-[12px] text-muted-foreground">{data ? 'None.' : 'Loading…'}</p>}>
+                {rows.length ? (
+                  <div className="scroll-thin max-h-[calc(100dvh-25rem)] min-h-[12rem] space-y-2 overflow-y-auto pe-1">
+                    {rows.map((k) => <CaseCard key={k.ref} k={k} lane={l.id} now={now} onOpen={() => openCase(k.ref)} />)}
+                    {lane.n > rows.length ? <p className="px-1 pt-1 text-[11px] text-muted-foreground">and {num(lane.n - rows.length)} more; narrow the lane with the filters above</p> : null}
+                  </div>
+                ) : null}
+              </WorkspaceLane>
+            );
+          })}
+        </WorkspaceLanes>
+      </WorkspaceLayout>
     </Screen>
   );
 }
-function CaseRow({ k, now, onOpen }: { k: any; now?: string; onOpen: () => void }) {
+
+/** One case: the person, what stands in the way in words, whose move it is and its time bar. The case and the customer ids travel in the hover. */
+function CaseCard({ k, lane, now, onOpen }: { k: any; lane: LaneId; now: string; onOpen: () => void }) {
   const flash = useFlash('cases', k.ref, true);
+  const why = (k.reasons ?? []).map((r: string) => REASON_LABEL[r] ?? r);
+  let state: ReactNode = null; let bar: ReactNode = null; let handler: ReactNode = null;
+  if (lane === 'person') {
+    const due = dueWord(k.sla_due, now);
+    state = <Chip tone={due.tone}>{due.word}</Chip>;
+    handler = <span className="text-[12px] text-muted-foreground">{PERSONA_SHORT[k.waiting_on] ?? 'A person'}</span>;
+    if (k.sla_due) bar = <TimeBar start={k.waiting_since ?? k.updated_at} end={k.sla_due} today={now} compact className="w-full" />;
+  } else if (lane === 'customer' || lane === 'date') {
+    const at = k.next_action_at ?? k.recheck_on;
+    const due = dueWord(at, now);
+    state = at ? <Chip tone={due.tone}>{lane === 'customer' ? 'next notice ' : ''}{due.tone ? due.word : rel(at, now)}</Chip> : null;
+    if (lane === 'customer' && k.max_attempts) handler = <span className="flex items-center gap-2 text-[12px] text-muted-foreground" title={`${k.attempts} of ${k.max_attempts} notices sent`}><Notices sent={k.attempts} max={k.max_attempts} />{k.attempts} of {k.max_attempts} notices</span>;
+    if (lane === 'date') handler = <span className="text-[12px] text-muted-foreground">{k.paused ? 'paused by a person' : k.recheck_reason ? `re-check: ${String(k.recheck_reason).toLowerCase()}` : title(k.state).toLowerCase()}</span>;
+    if (at && new Date(at) > new Date(k.updated_at ?? k.opened_at)) bar = <TimeBar start={k.updated_at ?? k.opened_at} end={at} today={now} compact className="w-full" />;
+  } else {
+    state = <span className="text-[11px] text-muted-foreground">{date(k.closed_at ?? k.updated_at)}</span>;
+    handler = <span className="text-[12px] text-muted-foreground">{k.state === 'HANDED_OVER' ? 'with Collections' : k.state === 'REQUALIFIED' ? 're-qualified, the offer on its way' : (k.close_code ? title(k.close_code) : 'closed').toLowerCase()}</span>;
+  }
   return (
-    <tr className={`clickable ${flash}`} onClick={onOpen} title={`${k.ref}${k.edge_key ? ` · ${k.edge_key}` : ''}`}>
-      <td><span className="block text-sm">{k.name_en}</span><span className="flex items-center gap-1 text-[11px] text-muted-foreground"><SegChip s={k.segment} /></span></td>
-      <td><span className="flex flex-wrap gap-1">{k.reasons.map((r: string) => <ReasonChip key={r} code={r} />)}</span></td>
-      <td className="text-[12px]"><ClassWord cls={k.cls} /></td>
-      <td><StatusChip status={k.state} />{k.close_code ? <span className="block"><StatusChip status={k.close_code} /></span> : null}{k.paused && k.state !== 'PAUSED' ? <Chip tone="danger" className="ms-1">paused</Chip> : null}</td>
-      <td>{k.max_attempts && (k.cls === 'A' || k.attempts > 0) ? <span className="block" title={`${k.attempts} of ${k.max_attempts} notices sent`}><Notices sent={k.attempts} max={k.max_attempts} size={8} /></span> : <span className="text-[12px] text-muted-foreground">—</span>}</td>
-      <td className="min-w-[9rem] text-[12px]">{k.next_action_at && !['CLOSED', 'HANDED_OVER', 'REQUALIFIED'].includes(k.state) ? <><ClockBar start={k.updated_at ?? k.opened_at} due={k.next_action_at} now={now} compact /><span className="mt-1 block text-muted-foreground">{now && new Date(k.next_action_at) < new Date(now) ? 'due ' : ''}{rel(k.next_action_at, now)}</span></> : k.recheck_on ? `re-check ${date(k.recheck_on)}` : <span className="text-muted-foreground">—</span>}</td>
-      <td className="text-[12px]">{k.waiting_on ? <Chip tone="warn">{PERSONA_SHORT[k.waiting_on]}</Chip> : k.waiting_event ? <span className="text-muted-foreground">{k.waiting_event === 'REPLY' ? 'the customer' : k.waiting_event.toLowerCase()}</span> : <span className="text-muted-foreground">—</span>}</td>
-    </tr>
+    <div className={flash} title={`${k.ref} · ${k.customer_id}${k.edge_key ? ` · ${k.edge_key}` : ''}`}>
+      <WorkItemCard onOpen={onOpen}
+        reference={<span className="text-[11px] text-muted-foreground">{SEG[k.segment] ?? k.segment}</span>}
+        state={state}
+        title={<><span className="block">{k.name_en}</span><span className="mt-0.5 block text-[12px] font-normal text-muted-foreground">{why.slice(0, 2).join(' · ')}{why.length > 2 ? ` · ${why.length - 2} more` : ''}</span></>}
+        handler={handler}
+        meta={bar ? <div className="w-full">{bar}</div> : undefined} />
+    </div>
   );
 }

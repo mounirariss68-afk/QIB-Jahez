@@ -60,7 +60,7 @@ export function BrandDemo() {
 
       <Stack label="Wordmark face">
         <p className="text-3xl">
-          Cognirise <em className="accent font-wordmark">Atelier</em>
+          Cognirise <em className="accent font-wordmark">CogniPulse</em>
         </p>
         <p className="text-sm text-muted-foreground">
           Comfortaa (via <code>.font-wordmark</code>, weight 700) draws brand

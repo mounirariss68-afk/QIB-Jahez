@@ -21,7 +21,7 @@ const MODES = [
 /**
  * The standard light / dark / system selector. Icon-only ghost button whose
  * icon reflects the RESOLVED mode; the menu shows all three with the active
- * one checked. Every Atelier title bar carries this — a two-state toggle is
+ * one checked. Every CogniPulse title bar carries this — a two-state toggle is
  * not an acceptable substitute.
  */
 export function ThemeModeToggle({ className }: { className?: string }) {

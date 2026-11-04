@@ -12,7 +12,7 @@ export const CHAT_RAIL_COLLAPSED = 48;
 export const CHAT_RAIL_DEFAULT = 320;
 export const CHAT_RAIL_MIN = 320;
 export const CHAT_RAIL_MAX = 720;
-const RAIL_WIDTH_STORAGE_KEY = 'atelier-chat-rail-width';
+const RAIL_WIDTH_STORAGE_KEY = 'cognipulse-chat-rail-width';
 /** Below this the expanded rail would take more of the window than it leaves
  * for content, so it collapses to the 48px strip and the user opens it
  * deliberately. Matches Tailwind's lg breakpoint. */

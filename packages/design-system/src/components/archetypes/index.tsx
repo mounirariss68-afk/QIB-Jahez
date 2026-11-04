@@ -81,3 +81,4 @@ export {
   type ProvenanceKind,
 } from './provenance';
 export { DecisionTrail, TrailEntry, type TrailKind } from './trail';
+export { ConfirmCard, DemoControl, Provenance, isClientView, type DemoControlItem } from './demo-kit';

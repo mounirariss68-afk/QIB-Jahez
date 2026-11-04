@@ -9,9 +9,9 @@
 import { SCENARIO, type DirectorAction, type DirectorStep, type PersonaKey } from '@jahiz/domain';
 import { pool, tx } from './db.js';
 import { now, today, isVirtual, setClock, persistClock, dohaAt } from './clock.js';
-import { activePolicy } from './policy.js';
+import { activePolicy, invalidatePolicy } from './policy.js';
 import { factsOf, recordPayment } from './core/connector.js';
-import { decide, startRun, resume, addActivity } from './engine/core.js';
+import { decide, startRun, resume, addActivity, addTrail } from './engine/core.js';
 import { scan } from './agents/raqib.js';
 import { buildPack } from './agents/muwathiq.js';
 import { receive } from './inbound.js';
@@ -153,6 +153,32 @@ export async function startScenario(key: string) {
     restored = await restoreOwners(c, customers, employers, { scenario: key, reason: `${dirty.length} record(s) had moved on since the seed` });
   });
   if (restored.length) invalidateHealth();
+  // A story that proposes a rule change (S6) starts from the design default: run again after its change was approved,
+  // it would otherwise propose the value already in force and move nothing. The default comes back as a new version,
+  // on the trail, never by rewriting an old one.
+  for (const st of s.steps) {
+    const a = st.action as DirectorAction & { kind: string; key?: string; segment?: string; value?: unknown };
+    if (a.kind !== 'propose_policy' || !a.key) continue;
+    const policy = await activePolicy();
+    const current = policy.get(a.key, a.segment as Segment | undefined);
+    if (String(current) !== String(a.value)) continue;
+    const def = PARAM[a.key];
+    const raw = { ...policy.raw() } as any;
+    const dflt = def?.segmented && a.segment ? (def.default as any)?.[a.segment] : def?.default;
+    if (dflt === undefined || String(dflt) === String(a.value)) continue;
+    if (def?.segmented && a.segment) raw[a.key] = { ...(typeof raw[a.key] === 'object' && !Array.isArray(raw[a.key]) ? raw[a.key] : (def.default as any)), [a.segment]: dflt };
+    else raw[a.key] = dflt;
+    await tx(async (c) => {
+      const ver = (await c.query(`SELECT COALESCE(MAX(version),0)+1 AS v FROM layer.policy_versions`)).rows[0].v;
+      await c.query(`UPDATE layer.policy_versions SET status='SUPERSEDED' WHERE status='ACTIVE'`);
+      await c.query(`INSERT INTO layer.policy_versions (version, status, proposed_by, approved_by, proposed_at, approved_at, effective_from, params, diff, rationale) VALUES ($1,'ACTIVE','head','head',$2,$2,$2,$3,$4,$5)`,
+        [ver, now(), JSON.stringify(raw), JSON.stringify([{ key: a.key, segment: a.segment ?? null, from: current, to: dflt }]), `Returned to the design default so the story "${s.name}" can run again`]);
+      await addTrail(c, { actor_type: 'SYSTEM', actor_id: 'policy', actor_name: 'Policy store', autonomy: null, act: 'VERSION', policy_version: ver, clause: def?.clause, scenario_key: key, before: { [a.key]: current }, after: { [a.key]: dflt },
+        summary: `Policy version ${ver} active: ${def?.label ?? a.key}${a.segment ? ` (${SEGMENT_LABEL[a.segment as Segment]})` : ''} back to ${dflt}, the design default, before the story runs again`, summary_ar: `الإصدار ${ver} من السياسة نافذ` });
+    });
+    invalidatePolicy();
+    restored.push(`policy:${a.key}`);
+  }
   if (clockReset) await tx((c) => addActivity(c, { trigger: `Director ${key}`, agent: null, action: 'Virtual clock returned to today', result: `The scenario starts on ${today()}${isVirtual() ? ' at 10:00 Doha (outside the service window now)' : ''}`, scenario_key: key }));
   const r = (await pool.query(`INSERT INTO layer.scenario_runs (key, status, step_index, started_at) VALUES ($1,'RUNNING',0,$2) RETURNING *`, [key, now()])).rows[0];
   const steps = await Promise.all(s.steps.map(async (st) => ({ ...st, screenResolved: await resolveScreen(st.screen, edge) })));

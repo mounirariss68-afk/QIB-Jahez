@@ -5,7 +5,7 @@ import { CHAT_RAIL_COLLAPSED, type ChatRailState } from './chat-rail';
 import type { AppChromeState } from './chrome';
 
 /**
- * THE DEFAULT ATELIER PAGE LAYOUT.
+ * THE DEFAULT COGNIPULSE PAGE LAYOUT.
  *
  * Every app uses this unless there is a stated reason not to. Four surfaces,
  * each on its own, separated by the L0 gutters that let the backdrop through:

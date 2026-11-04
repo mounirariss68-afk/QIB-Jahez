@@ -22,16 +22,27 @@ export async function buildPack(c: PoolClient, employerId: string, policy: Polic
   for (const id of staff) { const f = facts.get(id); if (!f) continue; const q = qualify(f, policy, today()); results.push({ customer_id: id, eligible: q.eligible, reason_codes: (q.reasons as string[]).filter((x) => x !== 'R20') }); }
   const onlyEmployer = results.filter((r) => !r.eligible && r.reason_codes.length === 1 && r.reason_codes[0] === 'R02').length;
   const anyEmployer = results.filter((r) => !r.eligible && r.reason_codes.includes('R02')).length;
+  const criteria = criteriaOf(e, staff.length, policy);
+  const fails = criteria.filter((x) => !x.ok);
+  const recommendation: Pack['recommendation'] = fails.length === 0 ? 'APPROVE' : fails.length >= 2 ? 'DECLINE' : 'REVIEW';
+  return finishPack(c, e, criteria, staff, onlyEmployer, anyEmployer, recommendation, policy, opts);
+}
+
+/** The POL-03 §5.1 criteria for one employer: also drawn per row on the Employers register. */
+export function criteriaOf(e: any, staffCount: number, policy: Policy): Pack['criteria'] {
   const crOk = !!e.cr_number && (!e.cr_valid_to || e.cr_valid_to >= today());
-  const criteria = [
+  return [
     { key: 'cr', label: 'Valid commercial registration', ok: crOk, value: e.cr_number ? `${e.cr_number} to ${e.cr_valid_to ?? '—'}` : 'none', required: 'valid CR', clause: 'POL-03 §5.1' },
     { key: 'wps', label: 'WPS active', ok: !policy.bool('employerRequireWps') || e.wps_active, value: e.wps_active ? 'active' : 'not active', required: policy.bool('employerRequireWps') ? 'required' : 'not required', clause: 'POL-03 §5.1' },
     { key: 'sector', label: 'Sector not restricted', ok: e.sector !== 'RESTRICTED', value: e.sector, required: 'not on the restricted list', clause: 'POL-03 §5.1' },
-    { key: 'headcount', label: 'Headcount or QIB-salaried staff', ok: e.headcount >= policy.num('employerMinHeadcount') || staff.length >= policy.num('employerMinQibSalaried'), value: `${e.headcount} staff (${e.headcount_band}); ${staff.length} QIB-salaried`, required: `≥ ${policy.num('employerMinHeadcount')} or ≥ ${policy.num('employerMinQibSalaried')} QIB-salaried`, clause: 'POL-03 §5.1' },
+    { key: 'headcount', label: 'Headcount or QIB-salaried staff', ok: e.headcount >= policy.num('employerMinHeadcount') || staffCount >= policy.num('employerMinQibSalaried'), value: `${e.headcount} staff (${e.headcount_band}); ${staffCount} QIB-salaried`, required: `≥ ${policy.num('employerMinHeadcount')} or ≥ ${policy.num('employerMinQibSalaried')} QIB-salaried`, clause: 'POL-03 §5.1' },
     { key: 'operating', label: 'Months of operation', ok: e.months_operating >= policy.num('employerMinMonthsOperating'), value: `${e.months_operating} months`, required: `≥ ${policy.num('employerMinMonthsOperating')}`, clause: 'POL-03 §5.1' },
   ];
+}
+
+async function finishPack(c: PoolClient, e: any, criteria: Pack['criteria'], staff: string[], onlyEmployer: number, anyEmployer: number, recommendation: Pack['recommendation'], policy: Policy, opts: { runId?: number | null; scenario?: string | null }): Promise<Pack> {
+  const employerId: string = e.id;
   const fails = criteria.filter((x) => !x.ok);
-  const recommendation: Pack['recommendation'] = fails.length === 0 ? 'APPROVE' : fails.length >= 2 ? 'DECLINE' : 'REVIEW';
   let narrative = `${e.name_en} (${e.sector}, ${e.headcount_band}) ${fails.length ? `fails ${fails.length} criterion/criteria: ${fails.map((x) => x.label).join(', ')}` : 'meets every POL-03 §5.1 criterion'}. ${staff.length} QIB-salaried customer(s); ${anyEmployer} currently fall out with employer approval among the reasons, ${onlyEmployer} for that reason alone. Approval would re-qualify those ${onlyEmployer} immediately.`;
   let mode: Pack['mode'] = 'offline';
   if (aiConfigured()) {

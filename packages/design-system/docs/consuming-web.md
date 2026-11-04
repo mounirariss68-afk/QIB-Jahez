@@ -1,4 +1,4 @@
-# Consuming Atelier in web apps
+# Consuming CogniPulse in web apps
 
 Read `docs/AGENTS.md` first, then `docs/LAYOUT.md` — the layout is a contract,
 not a suggestion, and this guide assumes you are building inside it. If the app
@@ -10,14 +10,14 @@ already contains a local theme or component library, also read
 Import this package's theme once from the app's main CSS:
 
 ```css
-@import "@cognirise/atelier/styles.css";
+@import "@cognirise/cognipulse/styles.css";
 ```
 
 `styles.css` already imports Tailwind, its plugins, and this package's token
 theme. It also registers this package's component sources. Do not add a separate
 Tailwind import or a `node_modules` source path in a Tailwind v4 consumer.
 Tailwind v3 consumers keep their existing `@tailwind` directives and add
-`node_modules/@cognirise/atelier/src/components` to `content`.
+`node_modules/@cognirise/cognipulse/src/components` to `content`.
 
 ## Typography
 
@@ -43,12 +43,12 @@ Do not use Comfortaa for body copy.
 Import every provided primitive, `cn`, and toast API directly from this package:
 
 ```tsx
-import { Button } from "@cognirise/atelier/components/ui/button";
-import { cn } from "@cognirise/atelier/lib/utils";
+import { Button } from "@cognirise/cognipulse/components/ui/button";
+import { cn } from "@cognirise/cognipulse/lib/utils";
 import {
   toast,
   useToast,
-} from "@cognirise/atelier/hooks/use-toast";
+} from "@cognirise/cognipulse/hooks/use-toast";
 ```
 
 Use the package component whenever it provides the required family. Keep
@@ -60,7 +60,7 @@ local toast hook while rendering the packaged `Toaster`.
 
 ## App shell & chat
 
-The shell is shipped, not described: import it from `@cognirise/atelier/layout`
+The shell is shipped, not described: import it from `@cognirise/cognipulse/layout`
 and compose the slots. `docs/LAYOUT.md` carries the frame, the minimum wiring
 (including the pre-paint theme script every app needs), every measurement, and
 the do/don't list. The "Default page layout" and "App shell & chat" pages in
@@ -76,7 +76,7 @@ Two things a consuming app must do that the package cannot do for it:
 ## Verify
 
 After wiring the workspace dependency, import and render
-`@cognirise/atelier/components/ui/button`. Run the app's typecheck
+`@cognirise/cognipulse/components/ui/button`. Run the app's typecheck
 and dev server. The import must resolve and the Button must use this package's
 theme before broader UI work begins.
 
